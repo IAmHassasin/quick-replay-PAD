@@ -1,0 +1,20 @@
+{
+  "format": "quickreplay/v1",
+  "name": "Example: search, open result, scroll",
+  "platform": "browser",
+  "repeat": 1,
+  "loopDelayMs": 0,
+  "startUrl": "https://example.com/",
+  "createdAt": "2026-10-17T00:00:00.000Z",
+  "steps": [
+    { "type": "click", "selector": "#search", "x": 420, "y": 80, "button": "left", "clickCount": 1 },
+    { "type": "type", "selector": "#search", "text": "quick replay", "delayBeforeMs": 600 },
+    { "type": "key", "key": "Enter", "delayBeforeMs": 300 },
+    { "type": "navigate", "url": "https://example.com/search?q=quick+replay", "delayBeforeMs": 200 },
+    { "type": "wait", "ms": 1000 },
+    { "type": "click", "selector": "[data-testid=\"result-1\"]", "x": 300, "y": 240, "delayBeforeMs": 800 },
+    { "type": "type", "selector": "input[name=\"password\"]", "text": "", "sensitive": true, "delayBeforeMs": 500 },
+    { "type": "scroll", "x": 0, "y": 1200, "delayBeforeMs": 400 },
+    { "type": "key", "key": "Escape", "delayBeforeMs": 250 }
+  ]
+}

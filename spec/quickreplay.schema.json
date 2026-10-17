@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/devsamurai/quick-replay/spec/quickreplay.schema.json",
+  "title": "Quick Replay script v1",
+  "type": "object",
+  "required": ["format", "name", "platform", "steps"],
+  "properties": {
+    "format": { "const": "quickreplay/v1" },
+    "name": { "type": "string", "minLength": 1 },
+    "platform": { "enum": ["android", "browser"] },
+    "repeat": { "type": "integer", "minimum": 0, "default": 1 },
+    "loopDelayMs": { "type": "integer", "minimum": 0, "default": 0 },
+    "screen": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "startUrl": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } }
+  },
+  "if": { "properties": { "platform": { "const": "android" } } },
+  "then": {
+    "required": ["screen"],
+    "properties": {
+      "steps": { "items": { "properties": { "type": { "enum": ["tap", "longPress", "swipe", "wait"] } } } }
+    }
+  },
+  "else": {
+    "properties": {
+      "steps": {
+        "items": { "properties": { "type": { "enum": ["navigate", "click", "type", "key", "scroll", "wait"] } } }
+      }
+    }
+  },
+  "$defs": {
+    "delay": { "type": "integer", "minimum": 0 },
+    "point": {
+      "type": "object",
+      "required": ["x", "y", "t"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "t": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "delayBeforeMs": { "$ref": "#/$defs/delay" } },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "tap" },
+            "x": { "type": "number" }, "y": { "type": "number" },
+            "durationMs": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["type", "x", "y"]
+        },
+        {
+          "properties": {
+            "type": { "const": "longPress" },
+            "x": { "type": "number" }, "y": { "type": "number" },
+            "durationMs": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["type", "x", "y", "durationMs"]
+        },
+        {
+          "properties": {
+            "type": { "const": "swipe" },
+            "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point" } }
+          },
+          "required": ["type", "points"]
+        },
+        {
+          "properties": { "type": { "const": "wait" }, "ms": { "type": "integer", "minimum": 0 } },
+          "required": ["type", "ms"]
+        },
+        {
+          "properties": { "type": { "const": "navigate" }, "url": { "type": "string" } },
+          "required": ["type", "url"]
+        },
+        {
+          "properties": {
+            "type": { "const": "click" },
+            "selector": { "type": "string" },
+            "x": { "type": "number" }, "y": { "type": "number" },
+            "button": { "enum": ["left", "middle", "right"] },
+            "clickCount": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["type", "x", "y"]
+        },
+        {
+          "properties": {
+            "type": { "const": "type" },
+            "selector": { "type": "string" },
+            "text": { "type": "string" },
+            "sensitive": { "type": "boolean", "description": "Password field: the value was not recorded" }
+          },
+          "required": ["type", "selector", "text"]
+        },
+        {
+          "properties": { "type": { "const": "key" }, "key": { "type": "string", "minLength": 1 } },
+          "required": ["type", "key"]
+        },
+        {
+          "properties": {
+            "type": { "const": "scroll" },
+            "x": { "type": "number" }, "y": { "type": "number" }
+          },
+          "required": ["type", "x", "y"]
+        }
+      ]
+    }
+  }
+}

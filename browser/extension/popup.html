@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quick Replay</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Quick Replay</h1>
+    <span id="mode" class="badge">idle</span>
+  </header>
+
+  <p id="status" role="status"></p>
+  <p id="warning" class="message warning" hidden></p>
+  <p id="error" class="message error" role="alert" hidden></p>
+
+  <section class="panel">
+    <label class="field">Name for the next recording
+      <input id="recordName" type="text" maxlength="200" placeholder="My script">
+    </label>
+    <div class="row">
+      <button id="recordBtn" type="button" class="primary">Record</button>
+      <button id="stopRecordBtn" type="button">Stop recording</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row">
+      <label class="field small">Repeat (0 = forever)
+        <input id="repeat" type="number" min="0" step="1" value="1">
+      </label>
+      <label class="field small">Delay between loops (ms)
+        <input id="loopDelay" type="number" min="0" step="100" value="0">
+      </label>
+    </div>
+    <button id="stopPlayBtn" type="button">Stop playback</button>
+  </section>
+
+  <section class="panel">
+    <div class="row spread">
+      <h2>Scripts</h2>
+      <button id="importBtn" type="button">Import…</button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+    </div>
+    <p id="emptyList" class="muted">No scripts yet. Record one or import a JSON file.</p>
+    <ul id="scriptList"></ul>
+  </section>
+
+  <template id="scriptItem">
+    <li class="script">
+      <div class="script-head">
+        <span class="script-name"></span>
+        <span class="script-meta muted"></span>
+      </div>
+      <div class="rename" hidden>
+        <input class="rename-input" type="text" maxlength="200" aria-label="New name">
+        <button type="button" data-action="rename-save">Save</button>
+        <button type="button" data-action="rename-cancel">Cancel</button>
+      </div>
+      <div class="row actions">
+        <button type="button" data-action="play" class="primary">Play</button>
+        <button type="button" data-action="rename">Rename</button>
+        <button type="button" data-action="export">Export</button>
+        <button type="button" data-action="delete" class="danger">Delete</button>
+      </div>
+    </li>
+  </template>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

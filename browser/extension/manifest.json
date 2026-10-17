@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Quick Replay",
+  "version": "0.1.0",
+  "description": "Record clicks, typing, keys, scrolling and navigation, then replay them with no step or loop limit.",
+  "minimum_chrome_version": "118",
+  "permissions": ["storage", "unlimitedStorage", "activeTab", "scripting", "debugger", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Quick Replay",
+    "default_popup": "popup.html"
+  }
+}

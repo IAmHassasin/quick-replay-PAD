@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quick Replay test page 2</title>
+</head>
+<body>
+  <h1>Page 2</h1>
+  <button data-testid="page2-button" type="button">Press</button>
+  <p>Presses: <span id="presses">0</span></p>
+  <script>
+    document.querySelector('[data-testid="page2-button"]').addEventListener('click', () => {
+      const el = document.getElementById('presses');
+      el.textContent = String(Number(el.textContent) + 1);
+    });
+  </script>
+</body>
+</html>

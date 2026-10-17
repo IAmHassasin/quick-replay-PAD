@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Quick Replay</string>
+    <string name="playground">Quick Replay Playground</string>
+    <string name="service_description">Shows a floating panel to record your touches and replay them. Quick Replay only injects the gestures you recorded or imported; it does not read screen content or send data anywhere.</string>
+</resources>

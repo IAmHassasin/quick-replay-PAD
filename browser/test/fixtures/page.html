@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quick Replay test page</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #tall { height: 3000px; background: linear-gradient(#eef, #fee); }
+  </style>
+</head>
+<body>
+  <h1>Quick Replay test page</h1>
+  <label>Text <input id="text" type="text" autocomplete="off"></label>
+  <label>Password <input id="secret" type="password" autocomplete="off"></label>
+  <button id="add" type="button">Add</button>
+  <p>Counter: <span id="counter">0</span></p>
+  <p>Enter presses: <span id="enterCount">0</span></p>
+  <ul id="list"></ul>
+  <p><a id="next" href="page2.html">Go to page 2</a></p>
+  <div id="tall">Long section to scroll</div>
+  <p id="bottom">Bottom of the page</p>
+  <script>
+    const counter = document.getElementById('counter');
+    const text = document.getElementById('text');
+    document.getElementById('add').addEventListener('click', (event) => {
+      if (!event.isTrusted) return; // only real (trusted) clicks count
+      counter.textContent = String(Number(counter.textContent) + 1);
+      const li = document.createElement('li');
+      li.textContent = text.value;
+      document.getElementById('list').append(li);
+    });
+    text.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && event.isTrusted) {
+        const el = document.getElementById('enterCount');
+        el.textContent = String(Number(el.textContent) + 1);
+      }
+    });
+  </script>
+</body>
+</html>
