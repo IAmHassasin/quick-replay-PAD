@@ -11,8 +11,9 @@ android {
         applicationId = "dev.quickreplay"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // versionCode = major * 10000 + minor * 100 + patch, so it always grows with versionName.
+        versionCode = 103
+        versionName = "0.1.3"
     }
 
     buildTypes {
@@ -37,6 +38,18 @@ kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
+}
+
+// `./gradlew exportApk` builds the debug APK and copies it to android/dist/ as
+// "Quick Replay <versionName>.apk" (dist/ is git-ignored).
+val exportApk by tasks.registering(Copy::class) {
+    group = "distribution"
+    description = "Builds the debug APK and copies it to android/dist as \"Quick Replay <version>.apk\"."
+    dependsOn("assembleDebug")
+    val versionName = android.defaultConfig.versionName
+    from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(rootProject.layout.projectDirectory.dir("dist"))
+    rename { "Quick Replay $versionName.apk" }
 }
 
 dependencies {

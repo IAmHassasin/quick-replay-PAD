@@ -5,9 +5,11 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -19,12 +21,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-/** Small draggable floating panel: drag handle, record, play/stop and a status line. */
+/**
+ * Small draggable floating panel: drag handle, record, play/stop, pause/resume (while playing),
+ * the ☰ menu and a status line.
+ */
 class OverlayPanel(
     private val context: Context,
     private val windowManager: WindowManager,
     private val onRecord: () -> Unit,
     private val onPlay: () -> Unit,
+    private val onPause: () -> Unit,
+    /** Called with the `downTime` of the ☰ press (see [OverlayMenu.toggle]). */
+    private val onMenu: (pressDownTime: Long) -> Unit,
 ) {
     private var scope: CoroutineScope? = null
     private var shown = false
@@ -32,9 +40,26 @@ class OverlayPanel(
         setTextColor(Color.WHITE)
         textSize = 12f
         setPadding(dp(8), 0, dp(8), 0)
+        // Long part names must not push the panel off the screen.
+        maxWidth = dp(170)
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
     }
     private val recordButton = button("REC") { onRecord() }
     private val playButton = button("PLAY") { onPlay() }
+    private val pauseButton = button("PAUSE") { onPause() }.apply { visibility = View.GONE }
+    private var menuPressDownTime = 0L
+
+    @SuppressLint("ClickableViewAccessibility") // The listener only reads the time; clicks still work.
+    private val menuButton = button("☰") {
+        onMenu(menuPressDownTime)
+        menuPressDownTime = -1 // a later click without a touch (e.g. TalkBack) must not reuse it
+    }.apply {
+        setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) menuPressDownTime = event.downTime
+            false // the click itself is still handled by the button
+        }
+    }
     private val handle = TextView(context).apply {
         text = "⋮⋮"
         setTextColor(Color.LTGRAY)
@@ -53,6 +78,8 @@ class OverlayPanel(
         addView(handle)
         addView(recordButton)
         addView(playButton)
+        addView(pauseButton)
+        addView(menuButton)
         addView(status)
     }
 
@@ -89,18 +116,33 @@ class OverlayPanel(
         shown = false
     }
 
+    /** Left edge, top and bottom of the panel on screen, for placing the menu. */
+    fun bounds(): Triple<Int, Int, Int> {
+        // Dragging does not clamp params, but the window manager keeps the panel on screen.
+        val metrics = context.resources.displayMetrics
+        val x = params.x.coerceIn(0, (metrics.widthPixels - root.width).coerceAtLeast(0))
+        val y = params.y.coerceIn(0, (metrics.heightPixels - root.height).coerceAtLeast(0))
+        return Triple(x, y, y + root.height)
+    }
+
     private fun render(state: ReplayState) {
+        pauseButton.visibility = if (state is ReplayState.Playing) View.VISIBLE else View.GONE
+        // Replayed gestures would land on (or close) the menu, so it is only available while idle.
+        menuButton.isEnabled = state !is ReplayState.Recording && state !is ReplayState.Playing
         when (state) {
             is ReplayState.Recording -> {
                 recordButton.text = "SAVE"
                 playButton.isEnabled = false
-                status.text = "REC · ${state.steps}"
+                status.text = "REC · ${state.steps}" + (state.lastAction?.let { " · ✓ $it" } ?: "")
             }
             is ReplayState.Playing -> {
                 recordButton.isEnabled = false
                 playButton.text = "STOP"
+                pauseButton.text = if (state.paused) "RESUME" else "PAUSE"
+                val p = state.progress
                 val loops = if (state.repeat == 0) "∞" else state.repeat.toString()
-                status.text = "${state.progress.step}/${state.progress.totalSteps} · loop ${state.progress.loop}/$loops"
+                val part = state.partName?.let { "${it.take(14)} ${p.partLoop}/${p.partRepeat} · " }.orEmpty()
+                status.text = (if (state.paused) "Paused · " else "") + "$part${p.step}/${p.totalSteps} · loop ${p.loop}/$loops"
             }
             is ReplayState.Idle -> {
                 recordButton.text = "REC"

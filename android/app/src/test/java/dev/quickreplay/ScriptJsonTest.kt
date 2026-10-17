@@ -4,6 +4,7 @@ import dev.quickreplay.model.ScreenSize
 import dev.quickreplay.model.Script
 import dev.quickreplay.model.ScriptFormatException
 import dev.quickreplay.model.ScriptJson
+import dev.quickreplay.model.SequenceJson
 import dev.quickreplay.model.Step
 import dev.quickreplay.model.StrokePoint
 import org.junit.Assert.assertEquals
@@ -35,7 +36,7 @@ class ScriptJsonTest {
     @Test
     fun parsesRepositoryExamples() {
         val examples = File("../../examples").listFiles { f -> f.name.endsWith(".json") }.orEmpty()
-            .filter { it.readText().contains("\"android\"") }
+            .filter { it.readText().contains("\"android\"") && !SequenceJson.isSequence(it.readText()) }
         assertTrue("expected android examples in /examples", examples.isNotEmpty())
         examples.forEach { ScriptJson.parse(it.readText()) }
     }

@@ -16,7 +16,7 @@ class StrokeRecorderTest {
     fun shortStillTouchIsTap() {
         recorder.down(100f, 200f, 1_000)
         recorder.move(103f, 202f, 1_040)
-        assertEquals(Step.Tap(100f, 200f, delayBeforeMs = 7), recorder.up(104f, 203f, 1_080, delayBeforeMs = 7))
+        assertEquals(Step.Tap(100f, 200f, durationMs = 80, delayBeforeMs = 7), recorder.up(104f, 203f, 1_080, delayBeforeMs = 7))
     }
 
     @Test

@@ -10,12 +10,19 @@ class ScriptFormatException(message: String) : Exception(message)
 object ScriptJson {
     const val FORMAT = "quickreplay/v1"
 
-    fun parse(text: String): Script {
-        val root = try {
-            JSONObject(text)
-        } catch (e: JSONException) {
-            throw ScriptFormatException("Not valid JSON: ${e.message}")
-        }
+    fun parse(text: String): Script = fromJson(parseObject(text))
+
+    /** Parses [text] as a JSON object, or throws [ScriptFormatException]. */
+    internal fun parseObject(text: String): JSONObject = try {
+        JSONObject(text)
+    } catch (e: JSONException) {
+        throw ScriptFormatException("Not valid JSON: ${e.message}")
+    } catch (e: StackOverflowError) {
+        // org.json parses recursively; a hostile file with deep nesting must not crash the app.
+        throw ScriptFormatException("JSON is nested too deeply")
+    }
+
+    internal fun fromJson(root: JSONObject): Script {
         if (root.optString("format") != FORMAT) throw ScriptFormatException("format must be \"$FORMAT\"")
         if (root.optString("platform") != "android") {
             throw ScriptFormatException("platform must be \"android\" (got \"${root.optString("platform")}\")")
@@ -76,7 +83,9 @@ object ScriptJson {
         }
     }
 
-    fun toJson(script: Script): String {
+    fun toJson(script: Script): String = toJsonObject(script).toString(2)
+
+    internal fun toJsonObject(script: Script): JSONObject {
         val root = JSONObject()
             .put("format", FORMAT)
             .put("name", script.name)
@@ -103,7 +112,7 @@ object ScriptJson {
             steps.put(json)
         }
         root.put("steps", steps)
-        return root.toString(2)
+        return root
     }
 
     private fun Float.round(): Double = Math.round(this * 10.0) / 10.0

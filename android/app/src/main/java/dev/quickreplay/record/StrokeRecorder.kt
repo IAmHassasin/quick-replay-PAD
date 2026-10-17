@@ -23,6 +23,9 @@ class StrokeRecorder(
 
     val isActive: Boolean get() = points.isNotEmpty()
 
+    /** True once the current touch has moved beyond the touch slop (it will be a swipe). */
+    val isMoving: Boolean get() = isActive && maxDistance > touchSlopPx
+
     fun down(x: Float, y: Float, timeMs: Long) {
         points.clear()
         downTime = timeMs
@@ -38,6 +41,9 @@ class StrokeRecorder(
         if (t - points.last().t >= minSampleIntervalMs) points += StrokePoint(x, y, t)
     }
 
+    /** Drops the current stroke (the system cancelled the touch). */
+    fun cancel() = points.clear()
+
     /** Finishes the stroke. [delayBeforeMs] is the pause since the previous step ended. */
     fun up(x: Float, y: Float, timeMs: Long, delayBeforeMs: Long): Step {
         check(points.isNotEmpty()) { "up() without down()" }
@@ -47,9 +53,11 @@ class StrokeRecorder(
         // The release point always ends the path, exactly at the stroke duration.
         if (points.size > 1 && points.last().t >= duration) points.removeAt(points.lastIndex)
         points += StrokePoint(x, y, duration)
+        // Taps keep their real press time: the next step's delayBeforeMs is measured from the
+        // release, so replaying a fixed duration would shift every following step.
         val step = when {
             maxDistance <= touchSlopPx && duration < longPressMs ->
-                Step.Tap(first.x, first.y, durationMs = Step.DEFAULT_TAP_MS, delayBeforeMs = delayBeforeMs)
+                Step.Tap(first.x, first.y, durationMs = duration, delayBeforeMs = delayBeforeMs)
             maxDistance <= touchSlopPx ->
                 Step.LongPress(first.x, first.y, durationMs = duration, delayBeforeMs = delayBeforeMs)
             else -> Step.Swipe(downsample(points), delayBeforeMs = delayBeforeMs)

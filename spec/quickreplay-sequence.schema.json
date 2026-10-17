@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/devsamurai/quick-replay/spec/quickreplay-sequence.schema.json",
+  "title": "Quick Replay combined script (sequence) v1",
+  "description": "Ordered parts, each an embedded quickreplay/v1 script played `repeat` times. Android only for now.",
+  "type": "object",
+  "required": ["format", "name", "platform", "parts"],
+  "properties": {
+    "format": { "const": "quickreplay-sequence/v1" },
+    "name": { "type": "string", "minLength": 1 },
+    "platform": { "const": "android" },
+    "repeat": { "type": "integer", "minimum": 0, "default": 1, "description": "Whole sequence; 0 = loop forever" },
+    "loopDelayMs": { "type": "integer", "minimum": 0, "default": 0 },
+    "createdAt": { "type": "string" },
+    "parts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["script"],
+        "properties": {
+          "repeat": { "type": "integer", "minimum": 1, "default": 1, "description": "Replaces the embedded script's own repeat" },
+          "delayBeforeMs": { "type": "integer", "minimum": 0, "default": 0 },
+          "script": {
+            "allOf": [
+              { "$ref": "quickreplay.schema.json" },
+              { "properties": { "platform": { "const": "android" } } }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

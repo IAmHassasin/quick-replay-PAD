@@ -7,7 +7,7 @@ script length, duration or loop count.
 |---|---|---|
 | [`android/`](android) | Android app: floating panel, record your touches, replay them on any app (Accessibility API, no root) | MVP, demo on emulator |
 | [`browser/`](browser) | Chrome/Edge extension (MV3): record clicks/typing/keys/scroll/navigation, replay with trusted input | MVP, Playwright e2e |
-| [`spec/`](spec) + [`docs/script-format.md`](docs/script-format.md) | Shared JSON script format `quickreplay/v1` | v1 |
+| [`spec/`](spec) + [`docs/script-format.md`](docs/script-format.md) | Shared JSON script format `quickreplay/v1`; combined scripts `quickreplay-sequence/v1` (Android) | v1 |
 
 Design and verified technical decisions: [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -21,6 +21,8 @@ Requirements: JDK 17+ (21 tested), Android SDK with platform 36.
 cd android
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 # APK: android/app/build/outputs/apk/debug/app-debug.apk
+./gradlew exportApk
+# Same debug APK copied to android/dist/"Quick Replay <versionName>.apk" (git-ignored)
 ```
 
 ### Use
@@ -28,9 +30,24 @@ cd android
 1. Install the APK, open **Quick Replay**, tap **Enable service** and turn on *Quick Replay* in
    Accessibility settings. A floating panel appears (drag it by the `⋮⋮` handle).
 2. **REC** → use your phone normally; every tap, long press and swipe is recorded and passed
-   through to the app underneath → **SAVE**.
-3. **PLAY** replays the active script; **STOP** stops it. In the app you can pick the active script,
-   set the repeat count (`0` = forever), import/export JSON and open the **Playground** test screen.
+   through to the app underneath → **SAVE**. Each recorded action is shown on screen (blue ripple =
+   tap, orange ring with timer = long press, green arrow = swipe, with a label such as
+   `#3 Tap 80 ms`) and on the panel (`REC · 3 · ✓ Tap 80 ms`). A yellow border means the last
+   touch is still being forwarded; touches in that short window are not recorded.
+3. **PLAY** replays the active script; **STOP** stops it; **PAUSE** / **RESUME** (shown while
+   playing) holds the script and continues where it stopped, including the rest of a running pause.
+   Replayed gestures are drawn the same way (Settings → *Show touches while replaying*).
+   **☰** opens a menu: open the app, change the active script or combined script, rename it.
+   Settings → *Show floating panel* hides the panel when idle; it still appears while a script plays.
+4. In the app: **Settings** on a script sets its name, repeat count / loop forever and pause between
+   loops; the **Settings** card sets the repeat count for new recordings. **Combined scripts** chain
+   recordings (e.g. A ×1 → B ×3 → C ×2) into one playable, exportable script. **How to use** opens
+   the in-app guide; **Playground** is a test screen; scripts import/export as JSON.
+
+Timing: pauses and press durations are recorded in ms and replayed on a timeline from the start of
+the run, so latency does not add up. Measured on the Android 15 emulator: recording
+"tap, 3 s, tap, 0.5 s, tap" replays the tap-to-tap intervals within ~15 ms of the recording, and
+30 taps 250 ms apart take 7 248–7 260 ms (ideal 7 250).
 
 How recording works: Android does not tell an app where the user touches other apps, so while
 recording a transparent full-screen layer receives the touch, records it, becomes "not touchable"
@@ -45,7 +62,9 @@ ADB=adb bash android/scripts/emulator-demo.sh
 
 It enables the service, imports [`examples/android-playground-demo.json`](examples/android-playground-demo.json),
 replays it on the Playground screen, records a new script through the capture layer with
-`adb shell input`, replays that recording and checks the Playground counters from logcat.
+`adb shell input`, replays that recording and checks the Playground counters from logcat. It then
+replays the combined script [`examples/android-sequence-demo.json`](examples/android-sequence-demo.json)
+and records "tap, 3 s, tap, 0.5 s, tap" to compare recorded and replayed intervals.
 Screenshots go to `android/build/demo/`. The debug build contains an exported broadcast
 receiver used by this script (`.debug.DebugCommandReceiver`); release builds do not.
 
@@ -71,7 +90,9 @@ See [`browser/README.md`](browser/README.md).
 |---|---|
 | Android app | Working MVP; unit tests 14/14, lint without errors; emulator demo (Android 15) passes: replay 6 taps / 2 long presses / 4 swipes, record → forward → replay 2/1/1, panel buttons verified |
 | Browser extension | Working MVP; lint OK, unit 14/14, Playwright e2e 5/5 (headless Chromium only) |
-| Script format | `quickreplay/v1` schema validated with Ajv against the examples |
+| Script format | `quickreplay/v1` schema validated with Ajv against the examples; `quickreplay-sequence/v1` (combined scripts, Android) added 2026-10-17, its schema not yet Ajv-validated |
+| Android 0.1.3 (2026-10-17) | Pause/resume, panel menu (open app, change script, rename), hide panel setting, rename in app; unit tests 32/32, emulator demo steps 1–6 pass |
+| Android 2026-10-17 update | Repeat settings, recording/replay visualizer, combined scripts, timeline timing, in-app guide; unit tests 28/28, lint 0 errors, emulator demo steps 1–5 pass |
 | Security review | Done; fixed playback state race, debug receiver now requires `DUMP`, navigation grace period in the browser player |
 | Not done | Multi-touch, per-segment swipe timing, visual step editor, `<select>` recording, branded Chrome/Edge testing |
 

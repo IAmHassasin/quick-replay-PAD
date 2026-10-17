@@ -35,7 +35,7 @@ class EngineTest {
     @Test
     fun playsStepsInOrderWithDelaysAndLoops() = runTest {
         val dispatched = mutableListOf<Pair<Long, GestureSpec>>()
-        val player = Player({ dispatched += currentTime to it; true }, 60_000)
+        val player = Player({ dispatched += currentTime to it; true }, 60_000, { currentTime })
         val script = Script(
             name = "t", screen = screen, repeat = 2, loopDelayMs = 1000,
             steps = listOf(Step.Tap(1f, 1f, delayBeforeMs = 100), Step.Wait(500), Step.Tap(2f, 2f, delayBeforeMs = 50)),
@@ -49,7 +49,7 @@ class EngineTest {
     fun infiniteRepeatRunsUntilCancelled() = runTest {
         var count = 0
         val progress = mutableListOf<PlaybackProgress>()
-        val player = Player({ count++; count % 2 == 0 }, 60_000) { progress += it }
+        val player = Player({ count++; count % 2 == 0 }, 60_000, { currentTime }) { progress += it }
         val script = Script(name = "t", screen = screen, repeat = 0, steps = listOf(Step.Tap(1f, 1f, delayBeforeMs = 10)))
         val job = launch { player.play(script) }
         advanceTimeBy(10_005)
@@ -61,7 +61,7 @@ class EngineTest {
 
     @Test
     fun emptyScriptFinishesImmediately() = runTest {
-        val result = Player({ true }, 60_000).play(Script(name = "e", screen = screen, repeat = 0, steps = emptyList()))
+        val result = Player({ true }, 60_000, { currentTime }).play(Script(name = "e", screen = screen, repeat = 0, steps = emptyList()))
         assertEquals(0, result.loop)
     }
 }

@@ -17,6 +17,19 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.GuideActivity"
+            android:exported="false"
+            android:label="@string/guide" />
+
+        <!-- Keeps the unsaved draft across rotation instead of recreating the activity. -->
+        <activity
+            android:name=".ui.SequenceEditorActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode"
+            android:exported="false"
+            android:label="@string/sequence_editor"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Exported so test runs can open it with `adb shell am start`; it only counts touches. -->
         <activity
             android:name=".ui.PlaygroundActivity"

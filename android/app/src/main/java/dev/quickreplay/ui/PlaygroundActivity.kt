@@ -17,7 +17,8 @@ import kotlin.math.hypot
 
 /**
  * A test surface for scripts: counts taps, long presses and swipes, and draws touch trails.
- * Every detected gesture is also logged (tag "QuickReplayPlayground") so runs can be verified
+ * Every detected gesture is also logged (tag "QuickReplayPlayground", with the touch-down
+ * `eventTime` as `down=`) so runs and their timing can be verified
  * from `adb logcat`.
  */
 class PlaygroundActivity : Activity() {
@@ -78,18 +79,18 @@ private class PlaygroundView(context: Context) : View(context) {
                     maxMove <= slop && duration < longPressMs -> {
                         taps++
                         lastDot = event.x to event.y
-                        Log.i(TAG, "tap #$taps at ${event.rawX.toInt()},${event.rawY.toInt()}")
+                        Log.i(TAG, "tap #$taps at ${event.rawX.toInt()},${event.rawY.toInt()} down=$downTime")
                     }
                     maxMove <= slop -> {
                         longPresses++
-                        Log.i(TAG, "longPress #$longPresses ${duration}ms")
+                        Log.i(TAG, "longPress #$longPresses ${duration}ms down=$downTime")
                     }
                     else -> {
                         swipes++
                         val dx = event.x - downX
                         val dy = event.y - downY
                         lastSwipe = if (abs(dx) > abs(dy)) (if (dx > 0) "right" else "left") else (if (dy > 0) "down" else "up")
-                        Log.i(TAG, "swipe #$swipes $lastSwipe")
+                        Log.i(TAG, "swipe #$swipes $lastSwipe down=$downTime")
                     }
                 }
                 current?.let { trails.addLast(it); if (trails.size > 30) trails.removeFirst() }

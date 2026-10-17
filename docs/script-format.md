@@ -23,13 +23,19 @@ Unknown extra fields are ignored by readers.
 | `steps` | array of steps | yes | |
 
 Every step may have `delayBeforeMs` (integer ≥ 0, default 0): wait before running the step.
-Recorders fill it with the real time elapsed since the previous step.
+Recorders fill it with the real time elapsed since the previous step ended (for the first step:
+since recording started). So the time between the starts of two gestures is
+`previous gesture duration + delayBeforeMs`.
+
+Players schedule steps on a timeline measured from the start of the run, so system latency
+(e.g. the time Android takes to report a gesture as completed) is taken out of the next pause
+instead of adding up. A pause is never shortened by more than 250 ms to catch up.
 
 ## Android steps
 
 | `type` | Fields | Notes |
 |---|---|---|
-| `tap` | `x`, `y`, `durationMs?` (default 50) | |
+| `tap` | `x`, `y`, `durationMs?` (default 50) | The Android recorder stores the real press time |
 | `longPress` | `x`, `y`, `durationMs` | |
 | `swipe` | `points: [{x, y, t}]` (≥ 2) | `t` = ms since the stroke started; same shape is used for any free-form path |
 | `wait` | `ms` | |
@@ -65,3 +71,30 @@ A gesture longer than `GestureDescription.getMaxGestureDuration()` (60 s) is cla
   ]
 }
 ```
+
+## Combined scripts — `quickreplay-sequence/v1` (android)
+
+A combined script plays several scripts in order, each a given number of times, e.g. A once,
+then B 3 times, then C twice. The scripts are **embedded** (copied), so the file is
+self-contained and keeps working after the source scripts are deleted.
+Schema: [`spec/quickreplay-sequence.schema.json`](../spec/quickreplay-sequence.schema.json).
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `format` | `"quickreplay-sequence/v1"` | yes | |
+| `name` | string | yes | |
+| `platform` | `"android"` | yes | |
+| `repeat` | integer ≥ 0 | no (default 1) | Whole sequence; `0` = loop forever |
+| `loopDelayMs` | integer ≥ 0 | no (default 0) | Pause between loops of the whole sequence |
+| `createdAt` | ISO-8601 string | no | |
+| `parts` | array of parts | yes | Played in order |
+
+Part:
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `script` | `quickreplay/v1` android script | yes | Its own `repeat` is ignored; its `loopDelayMs` is used between the part's repeats |
+| `repeat` | integer ≥ 1 | no (default 1) | How many times this part runs |
+| `delayBeforeMs` | integer ≥ 0 | no (default 0) | Pause before the part, on top of its first step's `delayBeforeMs` |
+
+Example: [`examples/android-sequence-demo.json`](../examples/android-sequence-demo.json).

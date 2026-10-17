@@ -2,5 +2,40 @@
 <resources>
     <string name="app_name">Quick Replay</string>
     <string name="playground">Quick Replay Playground</string>
+    <string name="guide">How to use Quick Replay</string>
+    <string name="sequence_editor">Combined script</string>
     <string name="service_description">Shows a floating panel to record your touches and replay them. Quick Replay only injects the gestures you recorded or imported; it does not read screen content or send data anywhere.</string>
+
+    <!-- In-app guide (GuideActivity). -->
+    <string name="guide_intro">Record what you do on the screen once, then let Quick Replay repeat it for you: as many steps and loops as you like.</string>
+
+    <string name="guide_service_title">1. Turn on the service</string>
+    <string name="guide_service_body">• On the main screen tap \"Enable service\", find Quick Replay in the Accessibility list (often under \"Installed apps\" or \"Downloaded apps\") and turn it on.\n• A floating panel appears: ⋮⋮ (drag handle), REC, PLAY and a status line. Drag it by ⋮⋮ to a place you do not need to touch.\n• If the panel disappears, the system turned the service off (some phones do this to save battery). Turn it on again and exclude Quick Replay from battery optimisation.</string>
+
+    <string name="guide_record_title">2. Record</string>
+    <string name="guide_record_body">• Open the app you want to automate and tap REC. A red border means recording.\n• Use the phone normally. Every touch is recorded and passed on to the app underneath.\n• The pauses between your touches are recorded too, including the time between tapping REC and your first touch.\n• Tap SAVE when done. The new script becomes the active one.</string>
+    <string name="guide_legend_title">What you see while recording</string>
+    <string name="guide_legend_tap">Blue ripple: a tap was recorded</string>
+    <string name="guide_legend_long">Orange ring with a timer: hold still, it becomes a long press</string>
+    <string name="guide_legend_swipe">Green line with an arrow: a swipe was recorded</string>
+    <string name="guide_legend_busy">Yellow border: your last touch is being passed to the app. Wait until the border is red again (about 0.2 s after a tap) before touching, otherwise that touch reaches the app but is not recorded.</string>
+    <string name="guide_legend_label">Labels such as \"#3 Tap 80 ms\" show the step number, its type and how long you pressed. The panel shows the step count and the last recorded action.</string>
+
+    <string name="guide_play_title">3. Replay</string>
+    <string name="guide_play_body">• PLAY on the panel replays the active script (marked ● in the list). The button turns into STOP.\n• You can also tap Play on any script in the app; the app moves to the background so the script acts on what is underneath.\n• While replaying, each gesture is drawn on the screen in the same colours. Turn this off in Settings → \"Show touches while replaying\".\n• PAUSE (shown while playing) holds the script; RESUME continues exactly where it stopped, including the rest of a pause that was running. A swipe or long press that is already being played finishes first.\n• Scripts recorded on a phone with another screen size are scaled to your screen.</string>
+
+    <string name="guide_panel_title">Floating panel menu (☰)</string>
+    <string name="guide_panel_body">• Open Quick Replay app: jumps back to this app.\n• Change script…: choose which script or combined script PLAY runs.\n• Rename script…: rename the active script without leaving the app you are in.\n• Tap outside the menu to close it.\n• To hide the panel when you do not need it, turn off Settings → \"Show floating panel\" in the app. It still appears while a script plays, so you can pause or stop it.\n• Scripts and combined scripts can also be renamed in the app with Rename.</string>
+
+    <string name="guide_repeat_title">4. Repeat count and timing</string>
+    <string name="guide_repeat_body">• Script → Settings: name, how many times to play it, \"Loop forever\" (until you tap STOP) and the pause between loops.\n• Settings → New recordings: the repeat count given to every new recording.\n• Timing: replay keeps your rhythm. How long you pressed and every pause are stored in milliseconds, and each step is scheduled from the start of the run, so small system delays do not add up over long scripts or many loops.</string>
+
+    <string name="guide_combo_title">5. Combined scripts</string>
+    <string name="guide_combo_body">• Record each piece as its own script, for example A = open the menu, B = collect a reward, C = go back.\n• Combined scripts → New combined script → \"+ Add script\" for each part, in order.\n• Set how many times each part runs (A 1×, B 3×, C 2×), an optional pause before a part, and how many times the whole combination repeats. Save.\n• The combined script becomes active: PLAY runs A once, B three times, then C twice. The panel shows the current part, e.g. \"B 2/3 · 12/30 · loop 1/1\".\n• Parts are copies: re-recording or deleting A later does not change the combined script. Edit it to swap a part.</string>
+
+    <string name="guide_files_title">6. Import, export and share</string>
+    <string name="guide_files_body">• Export saves a JSON file (.quickreplay.json for scripts, .quickreplay-combo.json for combined scripts). Import JSON accepts both.\n• Files are plain text, so you can keep them in version control or edit them. The format is described in docs/script-format.md in the project repository.</string>
+
+    <string name="guide_tips_title">Tips and limits</string>
+    <string name="guide_tips_body">• Try a new script on the Playground screen first: it counts taps, long presses and swipes.\n• One finger only (no pinch). A single press or swipe is limited by Android to 60 s; scripts themselves have no limit.\n• Touches on the floating panel are not recorded.\n• PLAY says \"No script selected\": tap Use on a script or combined script.\n• Replay hits the wrong place: the target app\'s layout changed, or the screen was rotated. Record again.\n• Quick Replay does not read screen content, shows no ads and sends no data anywhere.</string>
 </resources>
