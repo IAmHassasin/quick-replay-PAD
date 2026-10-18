@@ -3,6 +3,10 @@
 Open-source record & replay automation in the spirit of Click Assistant, **without limits** on
 script length, duration or loop count.
 
+> **quick-replay-PAD** is a fork of [quick-replay](https://github.com/IAmHassasin/quick-replay)
+> that adds a Puzzle & Dragons board solver (planned, not implemented yet). Design notes:
+> [`docs/PAD-SOLVER.md`](docs/PAD-SOLVER.md).
+
 | Part | What it is | Status |
 |---|---|---|
 | [`android/`](android) | Android app: floating panel, record your touches, replay them on any app (Accessibility API, no root) | MVP, demo on emulator |

@@ -4,6 +4,10 @@ Context, decisions and lessons from the first build session (2026-10-17). Read t
 changing the project. Plan: [`PLAN.md`](PLAN.md). Script format: [`script-format.md`](script-format.md).
 User docs: [`../README.md`](../README.md), [`../browser/README.md`](../browser/README.md).
 
+**This repo (quick-replay-PAD)** forks quick-replay at `a394373` (v0.1.3) to add a Puzzle & Dragons
+board solver. Start with [`PAD-SOLVER.md`](PAD-SOLVER.md): goal, rules, pipeline, open questions.
+Upstream: `git remote add upstream https://github.com/IAmHassasin/quick-replay.git`.
+
 ## What it is
 
 Open-source (MIT) record & replay automation, Click Assistant style, with no limit on steps or
