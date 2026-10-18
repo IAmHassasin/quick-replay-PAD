@@ -2,7 +2,9 @@ package dev.quickreplay.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.annotation.TargetApi
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Path
 import android.os.Build
 import android.os.Handler
@@ -11,6 +13,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import dev.quickreplay.engine.GestureDispatcher
@@ -19,24 +22,33 @@ import dev.quickreplay.engine.GestureSpec
 import dev.quickreplay.engine.PauseGate
 import dev.quickreplay.engine.PlaybackProgress
 import dev.quickreplay.engine.Player
+import dev.quickreplay.engine.SolveFailedException
+import dev.quickreplay.engine.SolveRunner
 import dev.quickreplay.model.ScreenSize
 import dev.quickreplay.model.Script
 import dev.quickreplay.model.ScriptFormatException
 import dev.quickreplay.model.ScriptSequence
 import dev.quickreplay.model.Step
+import dev.quickreplay.model.StrokePoint
 import dev.quickreplay.model.withDelayBefore
 import dev.quickreplay.overlay.CaptureLayer
 import dev.quickreplay.overlay.OverlayMenu
 import dev.quickreplay.overlay.OverlayPanel
 import dev.quickreplay.overlay.PlaybackOverlay
+import dev.quickreplay.pad.PadSetup
+import dev.quickreplay.pad.PadSolveFlow
+import dev.quickreplay.pad.Screenshot
 import dev.quickreplay.record.RecordingSession
 import dev.quickreplay.store.AppSettings
 import dev.quickreplay.store.LibraryEntry
 import dev.quickreplay.store.ScriptStore
 import dev.quickreplay.ui.MainActivity
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
@@ -47,7 +59,10 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Hosts the floating panel, records touches through [CaptureLayer] and replays scripts with
@@ -64,6 +79,11 @@ class QuickReplayService : AccessibilityService() {
     private var capture: CaptureLayer? = null
     private var pauseGate: PauseGate? = null
     private var session: RecordingSession? = null
+    /** PAD setup copied when the recording started; saved with the script if it has solve steps. */
+    private var recordingSetup: PadSetup? = null
+    /** A SOLVE pressed on the panel (not a script's solve step). */
+    private var solving: Job? = null
+    private val screenshotExecutor = Executors.newSingleThreadExecutor()
     private var playback: Job? = null
     private var playbackGeneration = 0
     @Volatile
@@ -87,7 +107,8 @@ class QuickReplayService : AccessibilityService() {
         instance = this
         panel = OverlayPanel(
             this, windowManager,
-            onRecord = ::toggleRecording, onPlay = ::togglePlayback, onPause = ::togglePause, onMenu = ::toggleMenu,
+            onRecord = ::toggleRecording, onPlay = ::togglePlayback, onPause = ::togglePause, onSolve = ::solveNow,
+            onMenu = ::toggleMenu,
         )
         menu = OverlayMenu(this, windowManager, menuActions)
         updatePanelVisibility()
@@ -102,6 +123,7 @@ class QuickReplayService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        solving?.cancel()
         stopPlayback()
         stopRecording(save = false)
         playbackOverlay?.hide()
@@ -112,6 +134,7 @@ class QuickReplayService : AccessibilityService() {
         panel = null
         scope.cancel()
         playerThread.quitSafely()
+        screenshotExecutor.shutdown()
         instance = null
         ReplayState.mutable.value = ReplayState.Disconnected
         super.onDestroy()
@@ -137,9 +160,16 @@ class QuickReplayService : AccessibilityService() {
 
     fun startRecording() {
         if (capture != null) return
+        if (solving?.isActive == true) {
+            // A drag already sent cannot be taken back; it would land on the new capture layer.
+            ReplayState.mutable.value = ReplayState.Idle("Wait until SOLVE has finished, then tap REC")
+            return
+        }
         stopPlayback()
         menu?.hide()
         session = RecordingSession(SystemClock.uptimeMillis())
+        // SOLVE presses in this recording use the setup of this moment, even if the settings change.
+        recordingSetup = settings.padSetup
         val layer = CaptureLayer(this, windowManager, ::onRecorded)
         // The capture layer must sit below the panel so the panel's buttons stay usable.
         panel?.hide()
@@ -185,8 +215,14 @@ class QuickReplayService : AccessibilityService() {
         layer.hide()
         capture = null
         updatePanelVisibility()
+        solving?.cancel()
         val steps = session?.steps().orEmpty()
+        // After a final solve the game still resolves combos (and more); the wait before SAVE
+        // becomes the pause between loops, so the next loop starts when it did while recording.
+        val loopDelay = if (steps.lastOrNull() is Step.Solve) session?.delayBefore(SystemClock.uptimeMillis()) ?: 0 else 0
         session = null
+        val setup = recordingSetup
+        recordingSetup = null
         if (!save || steps.isEmpty()) {
             ReplayState.mutable.value = ReplayState.Idle(if (save) "Nothing recorded" else null)
             return null
@@ -196,7 +232,9 @@ class QuickReplayService : AccessibilityService() {
             screen = screenSize(),
             steps = steps,
             repeat = settings.defaultRepeat,
+            loopDelayMs = loopDelay,
             createdAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+            pad = if (steps.any { it is Step.Solve }) setup else null,
         )
         val id = store.save(script)
         store.activeId = id
@@ -264,6 +302,7 @@ class QuickReplayService : AccessibilityService() {
 
     private fun startPlayback(run: suspend (Player) -> PlaybackProgress, state: (PlaybackProgress) -> ReplayState.Playing) {
         stopPlayback()
+        solving?.cancel() // a SOLVE from the panel would drag across the script's gestures
         menu?.hide() // replayed gestures would press or close it
         // The panel is shown while playing even if hidden in the settings, so STOP stays reachable.
         updatePanelVisibility(playing = true)
@@ -271,7 +310,21 @@ class QuickReplayService : AccessibilityService() {
         val generation = ++playbackGeneration
         val gate = PauseGate().also { pauseGate = it }
         playback = scope.launch {
-            val player = Player(playerGestures, maxGestureMs, SystemClock::uptimeMillis, gate) { progress ->
+            val solveRunner = SolveRunner { setup ->
+                // PAUSE during a solve holds the drag until RESUME; the board may have changed while
+                // paused, so it is then read and solved again.
+                val stillValid: suspend () -> Boolean = {
+                    if (gate.isPaused) {
+                        gate.awaitResumed()
+                        false
+                    } else {
+                        true
+                    }
+                }
+                val report = guardSolve { solveFlow(playerHandler, boardStillValid = stillValid).run(setup) }
+                Log.i(TAG, "playback solve: ${report.summary} in ${report.ms} ms")
+            }
+            val player = Player(playerGestures, maxGestureMs, SystemClock::uptimeMillis, gate, solveRunner) { progress ->
                 // Runs on the player thread. A cancelled run can still report one more step, so
                 // state is only written on the main thread and only by the current generation.
                 playingStep = progress.step
@@ -291,6 +344,12 @@ class QuickReplayService : AccessibilityService() {
                             if (result.failedGestures > 0) ", ${result.failedGestures} gesture(s) interrupted" else "",
                     )
                     Log.i(TAG, "playback finished: loops=${result.loop} failed=${result.failedGestures}")
+                }
+            } catch (e: SolveFailedException) {
+                // A solve step that cannot be done stops the playback (no blind drags).
+                Log.w(TAG, "playback stopped at a solve step: ${e.message}")
+                mainHandler.post {
+                    if (generation == playbackGeneration) ReplayState.mutable.value = ReplayState.Idle("Stopped: solve failed: ${e.message}")
                 }
             } finally {
                 // A newer playback may already be running; only the latest one owns the overlays.
@@ -327,6 +386,187 @@ class QuickReplayService : AccessibilityService() {
     }
 
     val isPaused: Boolean get() = pauseGate?.isPaused == true
+
+    // ---- PAD solve ----------------------------------------------------------------------------
+
+    /**
+     * SOLVE on the panel: reads the board, solves it and drags the path now. While recording, the
+     * drag reaches the app below and a `solve` step is recorded (not the drag itself), so the
+     * script solves whatever board it meets when replayed.
+     */
+    fun solveNow() {
+        if (solving?.isActive == true || playback?.isActive == true) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            showSolveStatus("SOLVE needs Android 11 or newer")
+            return
+        }
+        menu?.hide()
+        val layer = capture
+        val recording = session
+        val setup = (if (layer != null) recordingSetup else null) ?: settings.padSetup
+        val pressedAt = SystemClock.uptimeMillis()
+        showSolveStatus("Solving…")
+        solving = scope.launch {
+            try {
+                // Only the drag must reach the app below the capture layer (like a forwarded
+                // gesture); touches while the board settles or the search runs are still recorded.
+                val flow = solveFlow(
+                    null,
+                    beforeDrag = {
+                        if (layer != null) {
+                            layer.setPassThrough(true)
+                            delay(PASS_THROUGH_SETTLE_MS)
+                        }
+                    },
+                ) // pass-through ends in the finally below
+                val report = guardSolve { flow.run(setup) }
+                if (layer != null && recording != null && capture === layer) {
+                    recording.add(Step.Solve(recording.delayBefore(pressedAt)), SystemClock.uptimeMillis())
+                }
+                showSolveStatus(report.summary)
+                Log.i(TAG, "solve: ${report.summary} in ${report.ms} ms")
+            } catch (e: SolveFailedException) {
+                showSolveStatus("Solve failed: ${e.message}")
+                Log.w(TAG, "solve failed: ${e.message}")
+            } finally {
+                if (layer != null && capture === layer) layer.setPassThrough(false)
+            }
+        }
+    }
+
+    /**
+     * Runs a solve and turns unexpected errors (also errors such as OutOfMemoryError) into
+     * [SolveFailedException], which callers report; anything else escaping the service scope would
+     * crash the service. Cancellation passes through.
+     */
+    private suspend fun <T> guardSolve(block: suspend () -> T): T = try {
+        block()
+    } catch (e: SolveFailedException) {
+        throw e
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Log.e(TAG, "solve error", e)
+        throw SolveFailedException("Unexpected error: $e")
+    }
+
+    private fun showSolveStatus(message: String) {
+        val recording = session
+        ReplayState.mutable.value = if (capture != null && recording != null) {
+            ReplayState.Recording(recording.size, message)
+        } else {
+            ReplayState.Idle(message)
+        }
+    }
+
+    /**
+     * Solve flow whose drag result callback runs on [handler] (null = main thread). The drag is
+     * not drawn on the playback overlay: animating it costs frames, and on a slow device the game
+     * then receives fewer touch moves and can skip a cell.
+     */
+    private fun solveFlow(
+        handler: Handler?,
+        beforeDrag: suspend () -> Unit = {},
+        boardStillValid: suspend () -> Boolean = { true },
+    ) = PadSolveFlow(
+        capture = ::captureScreen,
+        drag = { gesture ->
+            beforeDrag()
+            inject(gesture, handler)
+        },
+        boardStillValid = boardStillValid,
+    )
+
+    /** Screenshot without our own overlays (they are made transparent for a moment). */
+    private suspend fun captureScreen(): Screenshot {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) throw SolveFailedException("Solving needs Android 11 or newer")
+        try {
+            // Inside the try: a cancellation right after hiding must still show them again.
+            withContext(Dispatchers.Main) { setOverlaysHiddenForCapture(true) }
+            delay(CAPTURE_SETTLE_MS) // let the transparent overlays reach the screen
+            return try {
+                takeScreenshotNow()
+            } catch (e: ScreenshotTooSoon) {
+                delay(SCREENSHOT_MIN_INTERVAL_MS) // the system allows about 3 screenshots per second
+                try {
+                    takeScreenshotNow()
+                } catch (again: ScreenshotTooSoon) {
+                    throw SolveFailedException("The system refused screenshots this often; try again")
+                }
+            }
+        } finally {
+            // Also after STOP/SAVE cancelled the solve: the overlays must not stay invisible.
+            withContext(NonCancellable + Dispatchers.Main) { setOverlaysHiddenForCapture(false) }
+        }
+    }
+
+    private fun setOverlaysHiddenForCapture(hidden: Boolean) {
+        panel?.setHiddenForCapture(hidden)
+        capture?.setHiddenForCapture(hidden)
+        playbackOverlay?.setHiddenForCapture(hidden)
+    }
+
+    class ScreenshotTooSoon : Exception()
+
+    /**
+     * The system keeps a screenshot callback (a binder object) alive until system_server's own GC,
+     * so the callback must not keep anything big reachable: it holds the waiting coroutine and the
+     * pixels only through [ScreenshotCallback]'s two references, which are emptied on use.
+     * Measured on the emulator before this: every solve kept its screenshots (+20–30 MB) alive.
+     */
+    @TargetApi(Build.VERSION_CODES.R) // callers check Build.VERSION.SDK_INT first
+    private suspend fun takeScreenshotNow(): Screenshot {
+        val slot = AtomicReference<Screenshot?>()
+        try {
+            suspendCancellableCoroutine { cont ->
+                val waiter = AtomicReference<CancellableContinuation<Unit>?>(cont)
+                cont.invokeOnCancellation { waiter.set(null) }
+                takeScreenshot(Display.DEFAULT_DISPLAY, screenshotExecutor, ScreenshotCallback(waiter, slot))
+            }
+            return slot.getAndSet(null) ?: throw SolveFailedException("Screenshot could not be read")
+        } finally {
+            slot.set(null)
+        }
+    }
+
+    /** Not an inner class: it must not reference the service or the coroutine directly. */
+    @TargetApi(Build.VERSION_CODES.R)
+    private class ScreenshotCallback(
+        private val waiter: AtomicReference<CancellableContinuation<Unit>?>,
+        private val slot: AtomicReference<Screenshot?>,
+    ) : TakeScreenshotCallback {
+        override fun onSuccess(result: ScreenshotResult) {
+            val buffer = result.hardwareBuffer
+            try {
+                val cont = waiter.getAndSet(null) ?: return // cancelled meanwhile
+                try {
+                    val hardware = Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)
+                        ?: throw SolveFailedException("Screenshot could not be read")
+                    val bitmap = hardware.copy(Bitmap.Config.ARGB_8888, false)
+                    hardware.recycle()
+                    val pixels = IntArray(bitmap.width * bitmap.height)
+                    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+                    slot.set(Screenshot(pixels, bitmap.width, bitmap.height))
+                    bitmap.recycle()
+                    // If the solve was cancelled meanwhile, nobody takes the pixels: drop them here.
+                    cont.resume(Unit) { slot.set(null) }
+                } catch (e: Throwable) {
+                    // Includes OutOfMemoryError: this runs on the screenshot executor, where an
+                    // uncaught error would kill the whole service; fail the solve instead.
+                    cont.resumeWithException(e as? SolveFailedException ?: SolveFailedException("Screenshot failed: $e"))
+                }
+            } finally {
+                buffer.close()
+            }
+        }
+
+        override fun onFailure(errorCode: Int) {
+            val cont = waiter.getAndSet(null) ?: return
+            cont.resumeWithException(
+                if (errorCode == ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT) ScreenshotTooSoon() else SolveFailedException("Screenshot failed (error $errorCode)"),
+            )
+        }
+    }
 
     // ---- Floating panel and menu ---------------------------------------------------------------
 
@@ -455,6 +695,8 @@ class QuickReplayService : AccessibilityService() {
         private const val TAG = "QuickReplay"
         private const val PASS_THROUGH_SETTLE_MS = 80L
         private const val OVERLAY_LINGER_MS = 2_000L
+        private const val CAPTURE_SETTLE_MS = 120L
+        private const val SCREENSHOT_MIN_INTERVAL_MS = 350L
 
         @Volatile
         var instance: QuickReplayService? = null

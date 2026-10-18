@@ -1,5 +1,7 @@
 package dev.quickreplay.model
 
+import dev.quickreplay.pad.PadSetup
+
 /** A point of a free-form stroke. [t] is milliseconds since the stroke started. */
 data class StrokePoint(val x: Float, val y: Float, val t: Long)
 
@@ -32,6 +34,12 @@ sealed interface Step {
 
     data class Wait(val ms: Long, override val delayBeforeMs: Long = 0) : Step
 
+    /**
+     * Reads the PAD board on screen, solves it with the script's [Script.pad] setup and drags the
+     * path. Its duration is not known in advance (search time + drag).
+     */
+    data class Solve(override val delayBeforeMs: Long = 0) : Step
+
     companion object {
         const val DEFAULT_TAP_MS = 50L
     }
@@ -42,6 +50,7 @@ fun Step.withDelayBefore(ms: Long): Step = when (this) {
     is Step.LongPress -> copy(delayBeforeMs = ms)
     is Step.Swipe -> copy(delayBeforeMs = ms)
     is Step.Wait -> copy(delayBeforeMs = ms)
+    is Step.Solve -> copy(delayBeforeMs = ms)
 }
 
 data class ScreenSize(val width: Int, val height: Int)
@@ -54,8 +63,14 @@ data class Script(
     val repeat: Int = 1,
     val loopDelayMs: Long = 0,
     val createdAt: String? = null,
+    /** Setup used by every `solve` step; required when the script has one. */
+    val pad: PadSetup? = null,
 ) {
-    /** Time one pass of the steps takes when replayed: pauses plus gesture durations. */
+    init {
+        require(pad != null || steps.none { it is Step.Solve }) { "A script with solve steps needs a PAD setup" }
+    }
+
+    /** Time one pass of the steps takes when replayed: pauses plus gesture durations (solve steps count as 0). */
     val passDurationMs: Long
         get() = steps.sumOf { step ->
             step.delayBeforeMs + when (step) {
@@ -63,6 +78,7 @@ data class Script(
                 is Step.LongPress -> step.durationMs
                 is Step.Swipe -> step.points.last().t - step.points.first().t
                 is Step.Wait -> step.ms
+                is Step.Solve -> 0
             }
         }
 
@@ -76,7 +92,7 @@ data class Script(
                 is Step.Tap -> step.copy(x = step.x * sx, y = step.y * sy)
                 is Step.LongPress -> step.copy(x = step.x * sx, y = step.y * sy)
                 is Step.Swipe -> step.copy(points = step.points.map { it.copy(x = it.x * sx, y = it.y * sy) })
-                is Step.Wait -> step
+                is Step.Wait, is Step.Solve -> step
             }
         }
         return copy(screen = target, steps = scaled)

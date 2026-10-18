@@ -55,6 +55,11 @@ class PlaybackOverlay(
         shown = false
     }
 
+    /** Hides the markers (the layer stays in place) so a screenshot does not show them. */
+    fun setHiddenForCapture(hidden: Boolean) {
+        alpha = if (hidden) 0f else 1f
+    }
+
     /** Shows [gesture] of [step] as step [number] of the script. */
     fun onGesture(gesture: GestureSpec, step: Step, number: Int?) {
         if (!shown) return

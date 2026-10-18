@@ -3,10 +3,27 @@
  * messages and renders state. User and script text is always rendered with
  * `textContent` (never `innerHTML`).
  */
+import { ORB_LETTERS, ORB_NAMES } from './lib/pad/board.js';
+import { SHAPE_LABELS, SHAPE_TYPES } from './lib/pad/shapes.js';
 import { parseScript } from './lib/script.js';
+
+/** Colours offered as goals (the six attributes; jammer/poison are not goal colours). */
+const GOAL_COLORS = ORB_LETTERS.slice(0, 6);
+const DEFAULT_COMBO_GOAL = 7;
 
 const $ = (id) => document.getElementById(id);
 const ui = {
+  padGoals: $('padGoals'),
+  padAddGoal: $('padAddGoal'),
+  padMaxMoves: $('padMaxMoves'),
+  padTimeLimit: $('padTimeLimit'),
+  padMsPerMove: $('padMsPerMove'),
+  padDiagonals: $('padDiagonals'),
+  padSolveDragBtn: $('padSolveDragBtn'),
+  padSolveBtn: $('padSolveBtn'),
+  padStopBtn: $('padStopBtn'),
+  padResult: $('padResult'),
+  padGoalTemplate: $('padGoalItem'),
   mode: $('mode'),
   status: $('status'),
   warning: $('warning'),
@@ -78,6 +95,7 @@ function describeState(s) {
   if (s.mode === 'recording') {
     return `Recording… ${s.recording?.stepCount ?? 0} step(s) captured.`;
   }
+  if (s.mode === 'solving') return `PAD solver: ${s.pad?.phase ?? 'working'}…`;
   if (s.mode === 'playing' && s.playback) {
     const p = s.playback;
     const loops = p.repeat === 0 ? '∞' : String(p.repeat);
@@ -85,6 +103,7 @@ function describeState(s) {
   }
   if (s.lastResult) {
     const r = s.lastResult;
+    if (r.kind === 'pad') return `PAD solver: ${r.status}.`;
     const what = r.kind === 'recording' ? 'Recording' : 'Playback';
     return `${what} "${r.name}": ${r.status}.`;
   }
@@ -109,6 +128,9 @@ function renderState(s) {
   ui.stopRecordBtn.disabled = s.mode !== 'recording';
   ui.stopPlayBtn.disabled = s.mode !== 'playing';
   for (const btn of ui.list.querySelectorAll('[data-action="play"]')) btn.disabled = s.mode !== 'idle';
+  ui.padSolveDragBtn.disabled = s.mode !== 'idle';
+  ui.padSolveBtn.disabled = s.mode !== 'idle';
+  ui.padStopBtn.disabled = !(s.mode === 'solving' && s.pad?.canStop);
   renderMessages();
 }
 
@@ -227,6 +249,97 @@ ui.list.addEventListener('click', (event) => {
   });
 });
 
+// ------------------------------------------------------------------ PAD solver
+
+function addGoalRow(goal) {
+  const item = ui.padGoalTemplate.content.firstElementChild.cloneNode(true);
+  const type = item.querySelector('.goal-type');
+  const color = item.querySelector('.goal-color');
+  const count = item.querySelector('.goal-count');
+  for (const value of SHAPE_TYPES) type.append(new Option(SHAPE_LABELS[value], value));
+  type.append(new Option('Combos (at least)', 'combos'));
+  for (const letter of GOAL_COLORS) color.append(new Option(ORB_NAMES[ORB_LETTERS.indexOf(letter)], letter));
+  type.value = goal.type;
+  color.value = goal.color ?? 'L';
+  count.value = String(goal.count ?? DEFAULT_COMBO_GOAL);
+  const sync = () => {
+    color.hidden = type.value === 'combos';
+    count.hidden = type.value !== 'combos';
+  };
+  type.addEventListener('change', sync);
+  sync();
+  ui.padGoals.append(item);
+}
+
+function readPadSettings() {
+  const goals = [...ui.padGoals.children].map((item) => {
+    const type = item.querySelector('.goal-type').value;
+    if (type === 'combos') return { type, count: Number(item.querySelector('.goal-count').value) };
+    return { type, color: item.querySelector('.goal-color').value };
+  });
+  return {
+    goals,
+    diagonals: ui.padDiagonals.checked,
+    maxMoves: Number(ui.padMaxMoves.value),
+    timeLimitMs: Number(ui.padTimeLimit.value),
+    msPerMove: Number(ui.padMsPerMove.value),
+  };
+}
+
+function renderPadSettings(settings) {
+  ui.padGoals.replaceChildren();
+  for (const goal of settings.goals) addGoalRow(goal);
+  ui.padDiagonals.checked = settings.diagonals;
+  ui.padMaxMoves.value = String(settings.maxMoves);
+  ui.padTimeLimit.value = String(settings.timeLimitMs);
+  ui.padMsPerMove.value = String(settings.msPerMove);
+}
+
+function describePadResult(r) {
+  if (r.status === 'impossible') return `Impossible:\n- ${r.reasons.join('\n- ')}`;
+  const lines = [];
+  const outcome = r.status === 'solved' ? 'Solved' : 'Best effort (not every goal met)';
+  lines.push(`${outcome}: ${r.moves} moves, ${r.stats.ms} ms, ${r.stats.evaluated} boards${r.stats.timedOut ? ', time limit hit' : ''}.`);
+  if (r.dragged) lines.push('Dragged on the page.');
+  else if (r.stopped) lines.push('Drag stopped.');
+  else if (r.status !== 'solved') lines.push('Not dragged because a goal is not met.');
+  for (const goal of r.goals) lines.push(`${goal.met ? '[x]' : '[ ]'} ${goal.label}`);
+  const combos = r.combos.map((c) => `${c.color}${c.size}${c.shapes.length ? ` ${c.shapes.join('+')}` : ''}${c.pass ? ' (cascade)' : ''}`);
+  lines.push(`Combos (${r.combos.length}): ${combos.join(', ') || 'none'}`);
+  lines.push(`Path: ${r.path.join(' > ')}`);
+  lines.push('', 'Board before:', r.before, '', 'After the drag:', r.afterDrag);
+  return lines.join('\n');
+}
+
+async function padSolve(drag) {
+  ui.padResult.hidden = true;
+  const { result } = await api('qr:padSolve', { tabId: await activeTabId(), settings: readPadSettings(), drag });
+  ui.padResult.textContent = describePadResult(result);
+  ui.padResult.hidden = false;
+}
+
+/** Keeps the settings when the popup closes without solving. */
+function savePadSettings() {
+  api('qr:padSaveSettings', { settings: readPadSettings() }).catch(() => {
+    // Invalid input stays on screen; the next solve reports the error.
+  });
+}
+
+ui.padAddGoal.addEventListener('click', () => {
+  addGoalRow({ type: 'row', color: 'L' });
+  savePadSettings();
+});
+ui.padGoals.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action="remove"]');
+  if (!button) return;
+  button.closest('li').remove();
+  savePadSettings();
+});
+ui.padSolveDragBtn.addEventListener('click', () => guarded(() => padSolve(true)));
+ui.padSolveBtn.addEventListener('click', () => guarded(() => padSolve(false)));
+ui.padStopBtn.addEventListener('click', () => guarded(() => api('qr:padStop')));
+$('padPanel').addEventListener('change', savePadSettings);
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'qr:state') renderState(message.state);
 });
@@ -234,5 +347,6 @@ chrome.runtime.onMessage.addListener((message) => {
 guarded(async () => {
   const { state } = await api('qr:getState');
   renderState(state);
+  renderPadSettings((await api('qr:padGetSettings')).settings);
   await refreshList();
 });

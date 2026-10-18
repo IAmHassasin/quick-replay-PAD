@@ -32,6 +32,30 @@ Requires Chrome / Edge 118 or newer.
 The popup shows progress (loop i of N, step j of M) and any playback error. Closing the popup
 does not stop recording or playback.
 
+## PAD solver (dawnGlare simulator)
+
+The popup's **PAD solver** panel solves a Puzzle & Dragons board on the
+[dawnGlare PAD Simulator](https://pad.dawnglare.com/) and performs the drag.
+
+1. Open `https://pad.dawnglare.com/` (or `?patt=LGHLBB...` with 30 orb letters for a fixed
+   board) and keep it as the active tab.
+2. In the popup, set the goals: Row, Column, 3x3 square, Cross, L shape, 4 in a line (each for
+   one colour), or "Combos (at least)". Several goals can be combined.
+3. **Solve & drag** reads the board, solves it and drags the path through `chrome.debugger`
+   (trusted mouse events). The drag only runs when every goal is met. **Solve only** shows the
+   path without touching the page. **Stop drag** releases the orb.
+
+Options: max moves, solver time limit (default 3 s; the solver keeps looking for a shorter path
+until it runs out, so a lower limit answers faster with possibly longer paths), drag time per
+move (default 40 ms; 10 ms also worked on dawnGlare), diagonal moves. The result shows the
+path (`r1c1` = row 1, column 1), the expected combos and the board after the drag. Impossible
+goals (not enough orbs of a colour) are reported without searching. After a solve the simulator
+leaves matched cells empty (skyfall is off by default): press **Reset** or **Random** before the
+next solve.
+
+The solver (`extension/lib/pad/`) is plain JavaScript with no browser APIs, so the Android app
+can reuse it. Design notes: [`docs/PAD-SOLVER.md`](../docs/PAD-SOLVER.md).
+
 ## How it works
 
 - **Recorder** (`extension/recorder.js`): a content script injected with

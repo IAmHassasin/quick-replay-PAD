@@ -1,5 +1,6 @@
 package dev.quickreplay.model
 
+import dev.quickreplay.pad.PadSetup
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -42,6 +43,15 @@ object ScriptJson {
         if (repeat < 0) throw ScriptFormatException("repeat must be >= 0")
         val loopDelay = root.optLong("loopDelayMs", 0)
         if (loopDelay < 0) throw ScriptFormatException("loopDelayMs must be >= 0")
+        if (root.has("pad") && root.optJSONObject("pad") == null) throw ScriptFormatException("pad must be an object")
+        val pad = root.optJSONObject("pad")?.let { json ->
+            try {
+                PadSetup.fromJson(json)
+            } catch (e: IllegalArgumentException) {
+                throw ScriptFormatException("pad: ${e.message}")
+            }
+        }
+        if (pad == null && steps.any { it is Step.Solve }) throw ScriptFormatException("pad is required for solve steps")
         return Script(
             name = name,
             screen = screen,
@@ -49,6 +59,7 @@ object ScriptJson {
             repeat = repeat,
             loopDelayMs = loopDelay,
             createdAt = root.optString("createdAt").ifBlank { null },
+            pad = pad,
         )
     }
 
@@ -79,6 +90,7 @@ object ScriptJson {
             "wait" -> Step.Wait(json.optLong("ms", -1).also {
                 if (it < 0) throw ScriptFormatException("$at.ms must be >= 0")
             }, delay)
+            "solve" -> Step.Solve(delay)
             else -> throw ScriptFormatException("$at.type \"$type\" is not an android step")
         }
     }
@@ -94,6 +106,7 @@ object ScriptJson {
             .put("loopDelayMs", script.loopDelayMs)
             .put("screen", JSONObject().put("width", script.screen.width).put("height", script.screen.height))
         script.createdAt?.let { root.put("createdAt", it) }
+        script.pad?.let { root.put("pad", it.toJson()) }
         val steps = JSONArray()
         for (step in script.steps) {
             val json = JSONObject()
@@ -107,6 +120,7 @@ object ScriptJson {
                     JSONArray(step.points.map { JSONObject().put("x", it.x.round()).put("y", it.y.round()).put("t", it.t) }),
                 )
                 is Step.Wait -> json.put("type", "wait").put("ms", step.ms)
+                is Step.Solve -> json.put("type", "solve")
             }
             if (step.delayBeforeMs > 0) json.put("delayBeforeMs", step.delayBeforeMs)
             steps.put(json)

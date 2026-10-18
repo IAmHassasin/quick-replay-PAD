@@ -5,6 +5,8 @@ import dev.quickreplay.model.Script
 import dev.quickreplay.model.ScriptJson
 import dev.quickreplay.model.ScriptSequence
 import dev.quickreplay.model.SequenceJson
+import dev.quickreplay.pad.PadSetup
+import org.json.JSONObject
 import java.io.File
 import java.util.UUID
 
@@ -130,7 +132,22 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_PLAYBACK, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_PLAYBACK, value).apply()
 
+    /**
+     * PAD solver setup used by the SOLVE button. A recording copies it when it starts, so a script
+     * keeps the setup it was recorded with. An unreadable stored value falls back to the default.
+     */
+    var padSetup: PadSetup
+        get() = prefs.getString(KEY_PAD_SETUP, null)?.let { json ->
+            try {
+                PadSetup.fromJson(JSONObject(json))
+            } catch (e: Exception) { // JSONException or IllegalArgumentException from an old/bad value
+                null
+            }
+        } ?: PadSetup()
+        set(value) = prefs.edit().putString(KEY_PAD_SETUP, value.toJson().toString()).apply()
+
     private companion object {
+        const val KEY_PAD_SETUP = "pad_setup"
         const val KEY_DEFAULT_REPEAT = "default_repeat"
         const val KEY_SHOW_PLAYBACK = "show_playback_touches"
         const val KEY_SHOW_PANEL = "show_panel"

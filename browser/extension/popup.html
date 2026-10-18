@@ -16,6 +16,42 @@
   <p id="warning" class="message warning" hidden></p>
   <p id="error" class="message error" role="alert" hidden></p>
 
+  <details id="padPanel" class="panel" open>
+    <summary><h2>PAD solver (dawnGlare)</h2></summary>
+    <p class="muted">Open <code>pad.dawnglare.com</code> in this tab, pick the goals, then solve.</p>
+    <ul id="padGoals"></ul>
+    <button id="padAddGoal" type="button">Add goal</button>
+    <div class="row">
+      <label class="field small">Max moves
+        <input id="padMaxMoves" type="number" min="1" max="200" step="1">
+      </label>
+      <label class="field small">Time limit (ms)
+        <input id="padTimeLimit" type="number" min="100" max="10000" step="100">
+      </label>
+    </div>
+    <div class="row">
+      <label class="field small">Drag time per move (ms)
+        <input id="padMsPerMove" type="number" min="10" max="2000" step="10">
+      </label>
+      <label class="check"><input id="padDiagonals" type="checkbox"> Diagonal moves</label>
+    </div>
+    <div class="row">
+      <button id="padSolveDragBtn" type="button" class="primary">Solve &amp; drag</button>
+      <button id="padSolveBtn" type="button">Solve only</button>
+      <button id="padStopBtn" type="button">Stop drag</button>
+    </div>
+    <pre id="padResult" class="pad-result" hidden></pre>
+  </details>
+
+  <template id="padGoalItem">
+    <li class="pad-goal">
+      <select class="goal-type" aria-label="Goal type"></select>
+      <select class="goal-color" aria-label="Orb colour"></select>
+      <input class="goal-count" type="number" min="1" max="40" step="1" aria-label="Combo count">
+      <button type="button" data-action="remove" aria-label="Remove goal">Remove</button>
+    </li>
+  </template>
+
   <section class="panel">
     <label class="field">Name for the next recording
       <input id="recordName" type="text" maxlength="200" placeholder="My script">

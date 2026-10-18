@@ -18,7 +18,7 @@ object GesturePlan {
             step.points.map { it.x to it.y },
             (step.points.last().t - step.points.first().t).clamp(maxDurationMs),
         )
-        is Step.Wait -> null
+        is Step.Wait, is Step.Solve -> null
     }
 
     private fun Long.clamp(max: Long): Long = coerceIn(1, max)

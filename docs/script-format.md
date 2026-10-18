@@ -4,8 +4,8 @@ A script is a single UTF-8 JSON document. Machine-readable schema:
 [`spec/quickreplay.schema.json`](../spec/quickreplay.schema.json).
 
 There is **no limit** on the number of steps or on `repeat`.
-Step types are platform specific: Android scripts may only contain `tap`, `longPress`, `swipe`
-and `wait`; browser scripts only `navigate`, `click`, `type`, `key`, `scroll` and `wait`.
+Step types are platform specific: Android scripts may only contain `tap`, `longPress`, `swipe`,
+`wait` and (PAD fork) `solve`; browser scripts only `navigate`, `click`, `type`, `key`, `scroll` and `wait`.
 Unknown extra fields are ignored by readers.
 
 ## Top level
@@ -42,6 +42,34 @@ instead of adding up. A pause is never shortened by more than 250 ms to catch up
 
 Coordinates are pixels in the `screen` coordinate space.
 A gesture longer than `GestureDescription.getMaxGestureDuration()` (60 s) is clamped.
+
+### PAD fork: `solve` step and `pad` setup (Quick Replay PAD)
+
+| `type` | Fields | Notes |
+|---|---|---|
+| `solve` | none | Screenshot (Android 11+), find the Puzzle & Dragons board, solve it with the script's `pad` setup, drag the path as one gesture. Waits until two reads 400 ms apart agree (max 10 s). Fails (and stops playback) when no board is found or the goals cannot be met, unless `whenUnmet` is `dragBest`. Its duration is not known in advance: the next step's `delayBeforeMs` counts from the end of the drag |
+
+A script with a `solve` step must have a top-level `pad` object. Recordings copy the app's PAD
+setup when REC starts; replaying always uses the script's own setup. When a recording ends with a
+`solve`, the time between that solve and SAVE becomes `loopDelayMs`.
+
+| `pad` field | Type | Default | Notes |
+|---|---|---|---|
+| `goals` | array, ≥ 1 | — | `{ "type": "row" \| "column" \| "square" \| "cross" \| "lshape" \| "tpa", "color": "R" \| "B" \| "G" \| "L" \| "D" \| "H" }` or `{ "type": "combos", "count": n }`; all must be met |
+| `rows`, `cols` | integer 3–9 | 5, 6 | Board size |
+| `diagonals` | boolean | true | Allow diagonal moves |
+| `maxMoves` | integer 1–50 | 40 | |
+| `timeLimitMs` | integer 100–10000 | 3000 | Search time; more time finds shorter paths |
+| `msPerMove` | integer 10–1000 | 150 | Drag time per move; raise it on slow devices that miss cells |
+| `whenUnmet` | `"fail"` \| `"dragBest"` | `"fail"` | What to do when the goals cannot be met |
+
+```json
+"pad": { "goals": [{ "type": "row", "color": "L" }], "msPerMove": 150 },
+"steps": [
+  { "type": "tap", "x": 540, "y": 1900, "delayBeforeMs": 800 },
+  { "type": "solve", "delayBeforeMs": 1500 }
+]
+```
 
 ## Browser steps
 

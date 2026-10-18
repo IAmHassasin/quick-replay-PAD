@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Small draggable floating panel: drag handle, record, play/stop, pause/resume (while playing),
- * the ☰ menu and a status line.
+ * SOLVE (PAD board, while idle or recording), the ☰ menu and a status line.
  */
 class OverlayPanel(
     private val context: Context,
@@ -31,6 +31,7 @@ class OverlayPanel(
     private val onRecord: () -> Unit,
     private val onPlay: () -> Unit,
     private val onPause: () -> Unit,
+    private val onSolve: () -> Unit,
     /** Called with the `downTime` of the ☰ press (see [OverlayMenu.toggle]). */
     private val onMenu: (pressDownTime: Long) -> Unit,
 ) {
@@ -48,6 +49,7 @@ class OverlayPanel(
     private val recordButton = button("REC") { onRecord() }
     private val playButton = button("PLAY") { onPlay() }
     private val pauseButton = button("PAUSE") { onPause() }.apply { visibility = View.GONE }
+    private val solveButton = button("SOLVE") { onSolve() }
     private var menuPressDownTime = 0L
 
     @SuppressLint("ClickableViewAccessibility") // The listener only reads the time; clicks still work.
@@ -79,6 +81,7 @@ class OverlayPanel(
         addView(recordButton)
         addView(playButton)
         addView(pauseButton)
+        addView(solveButton)
         addView(menuButton)
         addView(status)
     }
@@ -116,6 +119,11 @@ class OverlayPanel(
         shown = false
     }
 
+    /** Makes the panel invisible (but still in place) so a screenshot does not show it. */
+    fun setHiddenForCapture(hidden: Boolean) {
+        root.alpha = if (hidden) 0f else 1f
+    }
+
     /** Left edge, top and bottom of the panel on screen, for placing the menu. */
     fun bounds(): Triple<Int, Int, Int> {
         // Dragging does not clamp params, but the window manager keeps the panel on screen.
@@ -127,6 +135,8 @@ class OverlayPanel(
 
     private fun render(state: ReplayState) {
         pauseButton.visibility = if (state is ReplayState.Playing) View.VISIBLE else View.GONE
+        // Replayed scripts run their own solve steps.
+        solveButton.visibility = if (state is ReplayState.Playing) View.GONE else View.VISIBLE
         // Replayed gestures would land on (or close) the menu, so it is only available while idle.
         menuButton.isEnabled = state !is ReplayState.Recording && state !is ReplayState.Playing
         when (state) {

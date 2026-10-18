@@ -18,6 +18,7 @@ import android.widget.Toast
 import dev.quickreplay.model.ScriptFormatException
 import dev.quickreplay.model.ScriptJson
 import dev.quickreplay.model.SequenceJson
+import dev.quickreplay.model.Step
 import dev.quickreplay.service.QuickReplayService
 import dev.quickreplay.service.ReplayState
 import dev.quickreplay.store.AppSettings
@@ -43,6 +44,7 @@ class MainActivity : Activity() {
     private lateinit var defaultRepeat: TextView
     private lateinit var panelSwitch: Switch
     private lateinit var touchesSwitch: Switch
+    private lateinit var padSummary: TextView
     private lateinit var list: LinearLayout
     private lateinit var sequenceList: LinearLayout
     private var pendingExport: PendingExport? = null
@@ -62,8 +64,8 @@ class MainActivity : Activity() {
             setPadding(pad, Ui.dp(context, 24), pad, pad)
             setBackgroundColor(Ui.BG)
         }
-        content.addView(Ui.text(this, "Quick Replay", 24f, bold = true))
-        content.addView(Ui.text(this, "Record and replay touches. No limits, open source.", 13f, Ui.MUTED))
+        content.addView(Ui.text(this, "Quick Replay PAD", 24f, bold = true))
+        content.addView(Ui.text(this, "Record and replay touches, solve Puzzle & Dragons boards. No limits, open source.", 13f, Ui.MUTED))
 
         content.addView(
             Ui.buttonRow(
@@ -85,6 +87,7 @@ class MainActivity : Activity() {
         content.addView(serviceCard, Ui.spacedParams(this, 16))
 
         content.addView(settingsCard(), Ui.spacedParams(this, 12))
+        content.addView(padCard(), Ui.spacedParams(this, 12))
 
         content.addView(Ui.text(this, "Scripts", 16f, bold = true), Ui.spacedParams(this, 20))
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -121,6 +124,7 @@ class MainActivity : Activity() {
         panelSwitch.isChecked = settings.showPanel
         touchesSwitch.isChecked = settings.showPlaybackTouches
         renderDefaultRepeat()
+        renderPadSummary()
         renderStatus(ReplayState.flow.value)
         renderList()
     }
@@ -174,6 +178,37 @@ class MainActivity : Activity() {
         return card
     }
 
+    private fun padCard(): LinearLayout {
+        val card = Ui.card(this)
+        card.addView(Ui.text(this, "PAD solver", 15f, bold = true))
+        padSummary = Ui.text(this, "", 13f)
+        card.addView(padSummary, Ui.spacedParams(this, 8))
+        card.addView(
+            Ui.text(
+                this,
+                "SOLVE on the floating panel reads the board on screen (Android 11+), finds a path for these goals and drags it. " +
+                    "While recording, SOLVE is saved as a step: the script copies this setup when REC starts and always replays with it.",
+                12f, Ui.MUTED,
+            ),
+            Ui.spacedParams(this, 6),
+        )
+        card.addView(
+            Ui.buttonRow(this, Ui.button(this, "Edit PAD setup") {
+                PadSetupDialog.show(this, "PAD setup for SOLVE and new recordings", settings.padSetup) { setup ->
+                    settings.padSetup = setup
+                    renderPadSummary()
+                }
+            }),
+            Ui.spacedParams(this, 6),
+        )
+        renderPadSummary()
+        return card
+    }
+
+    private fun renderPadSummary() {
+        padSummary.text = settings.padSetup.summary()
+    }
+
     private fun renderDefaultRepeat() {
         defaultRepeat.text = "New recordings: ${Ui.repeatText(settings.defaultRepeat)}"
     }
@@ -221,11 +256,21 @@ class MainActivity : Activity() {
         card.addView(
             Ui.text(this, "${Ui.count(s.steps.size, "step")} · ${Ui.duration(s.passDurationMs)} · ${Ui.repeatText(s.repeat)}$delay · ${s.screen.width}×${s.screen.height}", 12f, Ui.MUTED),
         )
+        val solves = s.steps.count { it is Step.Solve }
+        s.pad?.let { pad -> card.addView(Ui.text(this, "${Ui.count(solves, "solve")} · ${pad.summary()}", 12f, Ui.MUTED)) }
         val buttons = listOfNotNull(
             if (!isActive) Ui.button(this, "Use") { store.activeId = item.id; renderList() } else null,
             Ui.button(this, "Play") { play(item) },
             Ui.button(this, "Rename") { rename(item.id, s.name) },
             Ui.button(this, "Settings") { editScript(item) },
+            s.pad?.let { pad ->
+                Ui.button(this, "PAD setup") {
+                    PadSetupDialog.show(this, "PAD setup of \"${s.name}\"", pad) { setup ->
+                        store.save(s.copy(pad = setup), item.id)
+                        renderList()
+                    }
+                }
+            },
             Ui.button(this, "Export") { openExport(item.id, s.name, sequence = false) },
             Ui.button(this, "Delete") { confirmDelete(s.name) { store.delete(item.id) } },
         )

@@ -20,9 +20,12 @@ loops. Two clients share one JSON format `quickreplay/v1` (`spec/quickreplay.sch
 
 ```
 android/app/src/main/java/dev/quickreplay/
-  model/     Script, Step (tap/longPress/swipe/wait), ScriptJson (org.json), scaling to other screens;
+  model/     Script, Step (tap/longPress/swipe/wait/solve), ScriptJson (org.json), scaling to other screens;
              ScriptSequence/SequencePart + SequenceJson (combined scripts, quickreplay-sequence/v1)
-  engine/    GesturePlan (step → gesture spec, clamped), Player (timeline scheduling, sequences, unlimited loops)
+  engine/    GesturePlan (step → gesture spec, clamped), Player (timeline scheduling, sequences, unlimited loops,
+             SolveRunner for solve steps)
+  pad/       PAD fork: Board/Matcher/Shapes/Solver (Kotlin port of browser/extension/lib/pad, same paths),
+             BoardRecognizer (screenshot → board), PadSetup (goals, drag speed; script `pad`), PadSolveFlow
   record/    StrokeRecorder (touch stream → tap/longPress/swipe), RecordingSession (pauses)
   service/   QuickReplayService (AccessibilityService), ReplayState (StateFlow)
   overlay/   OverlayPanel (draggable panel), OverlayMenu (☰ menu), CaptureLayer (recording layer + live feedback),
@@ -99,9 +102,24 @@ playback now runs on its own `HandlerThread` and gesture callbacks are delivered
 - `AppSettings.showPanel` = false hides the panel only while idle; `updatePanelVisibility()` shows
   it while recording or playing so SAVE/STOP/PAUSE stay reachable.
 - Version: `versionCode = major*10000 + minor*100 + patch`. `./gradlew exportApk` writes
-  `android/dist/Quick Replay <versionName>.apk`; the owner wants a new APK after every change round.
+  `android/dist/Quick Replay PAD <versionName>.apk` (PAD fork); the owner wants a new APK after every change round.
 
 ## Gotchas learned (do not regress)
+
+- **PAD fork (0.1.0)**: app id `dev.quickreplay.pad`, Kotlin package still `dev.quickreplay`, so adb
+  components are `dev.quickreplay.pad/dev.quickreplay.…` (see `scripts/emulator-demo.sh`).
+- **Solver parity**: JS and Kotlin solvers must stay identical (`spec/pad-solver-vectors.json`); any
+  change to scoring, ordering, hashing or `SEEN_LIMIT` needs both sides and `node scripts/pad-vectors.js`.
+- **Screenshot callbacks leak**: system_server keeps `TakeScreenshotCallback` until its own GC; the
+  callback must not reference the coroutine or the pixels directly (`ScreenshotCallback` + emptied
+  `AtomicReference`s). Before: +20–30 MB per solve, OOM after a few loops. Check with the debug
+  `MEMORY` command (GC, then heap use).
+- **Solver memory on phones**: no `HashSet<Long>` (boxing; it caused an OOM) — `LongSet`; beam width
+  capped at 16000 by `PadSetup`.
+- **Grid accuracy matters for diagonal drags**: a grid a few px off made dawnGlare swap side cells on
+  diagonals; `BoardRecognizer.refineGrid` fits orb edges (within 0.5 px of the DOM in tests).
+- **Overlays in screenshots**: panel, capture layer and playback overlay are made transparent
+  (alpha 0) for 120 ms around `takeScreenshot`; the solve drag is not drawn (it cost frames).
 
 - **Playback thread**: keep `Player` off the main thread (`playerContext` in the service). Overlay
   updates are posted to the main thread; with the player on Main, enabling "show touches" brought

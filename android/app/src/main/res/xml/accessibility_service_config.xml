@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only gesture injection is needed; the service does not read window content. -->
+<!-- Gesture injection, plus screenshots (Android 11+) so SOLVE can read the PAD board.
+     The service does not read window content. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canPerformGestures="true"
+    android:canTakeScreenshot="true"
     android:canRetrieveWindowContent="false"
     android:description="@string/service_description"
     android:notificationTimeout="100" />

@@ -35,7 +35,7 @@ h1 { font-size: 16px; margin: 0; }
 h2 { font-size: 14px; margin: 0; }
 .badge { border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; font-size: 12px; }
 .badge.recording { color: var(--danger); border-color: var(--danger); }
-.badge.playing { color: var(--accent); border-color: var(--accent); }
+.badge.playing, .badge.solving { color: var(--accent); border-color: var(--accent); }
 .panel { border-top: 1px solid var(--border); padding: 10px 0; }
 .row { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
 .row.spread { justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -64,3 +64,16 @@ ul { list-style: none; padding: 0; margin: 0; }
 .rename { display: flex; gap: 4px; margin-bottom: 6px; }
 .rename[hidden] { display: none; }
 .rename-input { flex: 1; }
+summary { cursor: pointer; margin-bottom: 6px; }
+summary h2 { display: inline; }
+select {
+  padding: 3px 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg);
+}
+.check { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.pad-goal { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+.pad-goal .goal-count { width: 64px; }
+.pad-goal [hidden] { display: none; }
+.pad-result {
+  margin: 8px 0 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
+  font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere;
+}

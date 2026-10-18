@@ -11,23 +11,24 @@ set -euo pipefail
 export MSYS_NO_PATHCONV=1  # Git Bash on Windows: do not rewrite /sdcard paths
 
 ADB="${ADB:-adb}"
-PKG=dev.quickreplay
+PKG=dev.quickreplay.pad   # application id (Quick Replay PAD)
+CODE=dev.quickreplay      # Kotlin package of the classes
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # pwd -W gives a native path on Git Bash (adb.exe cannot read /d/... paths).
 ROOT="$(cd "$HERE/../.." && (pwd -W 2>/dev/null || pwd))"
 OUT="$HERE/../build/demo"
 mkdir -p "$OUT"
 
-cmd() { "$ADB" shell am broadcast -n "$PKG/.debug.DebugCommandReceiver" -a "$PKG.debug.$1" "${@:2}" | sed -n 's/.*data="\(.*\)"/\1/p'; }
+cmd() { "$ADB" shell am broadcast -n "$PKG/$CODE.debug.DebugCommandReceiver" -a "$CODE.debug.$1" "${@:2}" | sed -n 's/.*data="\(.*\)"/\1/p'; }
 counts() { "$ADB" logcat -d -s QuickReplayPlayground | grep -cE " $1 #" || true; }
 shot() { "$ADB" exec-out screencap -p > "$OUT/$1.png"; echo "  screenshot: build/demo/$1.png"; }
 playground() {
   "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
   # force-stop also stops the accessibility service; re-enable it.
-  "$ADB" shell settings put secure enabled_accessibility_services "$PKG/$PKG.service.QuickReplayService"
+  "$ADB" shell settings put secure enabled_accessibility_services "$PKG/$CODE.service.QuickReplayService"
   "$ADB" shell settings put secure accessibility_enabled 1
   sleep 2
-  "$ADB" shell am start -W -n "$PKG/.ui.PlaygroundActivity" >/dev/null
+  "$ADB" shell am start -W -n "$PKG/$CODE.ui.PlaygroundActivity" >/dev/null
   sleep 1
   "$ADB" logcat -c
 }
@@ -40,7 +41,7 @@ wait_idle() {
 }
 
 echo "[1] enable service"
-"$ADB" shell settings put secure enabled_accessibility_services "$PKG/$PKG.service.QuickReplayService"
+"$ADB" shell settings put secure enabled_accessibility_services "$PKG/$CODE.service.QuickReplayService"
 "$ADB" shell settings put secure accessibility_enabled 1
 echo "  $(cmd SETTINGS --ez show_panel true --ez show_touches true)"
 

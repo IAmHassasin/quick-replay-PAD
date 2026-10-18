@@ -326,3 +326,126 @@ test('popup import rejects bad scripts and escapes script names', { timeout: TES
   await renamed.locator('[data-action="delete"]').click(); // confirm
   await waitFor(async () => (await items.count()) === before, { message: 'script deleted' });
 });
+
+// ------------------------------------------------------------------ PAD solver
+
+const PAD_DOC_BOARD = 'LGHLBBLRDDGLBRRLRRHBRGBLLBBRRD';
+const padSettings = (overrides = {}) => ({
+  goals: [{ type: 'row', color: 'L' }],
+  diagonals: true,
+  maxMoves: 40,
+  timeLimitMs: 1000,
+  msPerMove: 20,
+  ...overrides,
+});
+const padText = (page) => page.evaluate(() => window.boardText());
+
+test('PAD solver reads the board, solves it and drags the path with trusted input', { timeout: TEST_TIMEOUT }, async () => {
+  const { page, tabId } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-drag');
+  const { result } = await apiOk({ type: 'qr:padSolve', tabId, settings: padSettings(), drag: true });
+
+  assert.equal(result.status, 'solved');
+  assert.equal(result.dragged, true);
+  assert.deepEqual(result.goals, [{ label: 'Row of Light', met: true }]);
+  assert.equal(result.before.replace(/\n/g, ''), PAD_DOC_BOARD);
+  // The page saw exactly the solver's path, one press and one release, all trusted events.
+  const log = await page.evaluate(() => window.padLog);
+  const cols = 6;
+  const expected = result.path.map((label) => {
+    const [, r, c] = label.match(/^r(\d+)c(\d+)$/);
+    return (Number(r) - 1) * cols + Number(c) - 1;
+  });
+  assert.deepEqual(log.path, expected);
+  assert.equal(log.down, 1);
+  assert.equal(log.up, 1);
+  assert.equal(log.trusted, true);
+  assert.equal(await padText(page), result.afterDrag.replace(/\n/g, ''));
+  assert.match(await padText(page), /LLLLLL/);
+
+  const state = await waitIdle();
+  assert.equal(state.lastResult.kind, 'pad');
+  assert.equal(state.lastResult.status, 'dragged');
+  assert.equal(await debuggerAttached(tabId), false, 'debugger detached after the drag');
+  // Settings are kept for the next popup.
+  const { settings } = await apiOk({ type: 'qr:padGetSettings' });
+  assert.deepEqual(settings, padSettings());
+});
+
+test('PAD solver: solve only, impossible goals and pages without a board', { timeout: TEST_TIMEOUT }, async () => {
+  const { page, tabId } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-solve-only');
+  const { result } = await apiOk({ type: 'qr:padSolve', tabId, settings: padSettings({ diagonals: false }), drag: false });
+  assert.equal(result.status, 'solved');
+  assert.equal(result.dragged, false);
+  assert.equal(await padText(page), PAD_DOC_BOARD, 'solve only does not touch the page');
+  assert.deepEqual((await page.evaluate(() => window.padLog)).path, []);
+
+  const impossible = await apiOk({
+    type: 'qr:padSolve', tabId, settings: padSettings({ goals: [{ type: 'square', color: 'D' }] }), drag: true,
+  });
+  assert.equal(impossible.result.status, 'impossible');
+  assert.deepEqual(impossible.result.reasons, ['Dark: the goals need 9 orbs, the board has 3']);
+  assert.equal(impossible.result.dragged, false);
+  assert.equal(await debuggerAttached(tabId), false);
+
+  const bad = await api({ type: 'qr:padSolve', tabId, settings: padSettings({ goals: [{ type: 'row', color: 'Q' }] }) });
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /unknown colour/);
+  const noGoals = await api({ type: 'qr:padSolve', tabId, settings: padSettings({ goals: [] }), drag: true });
+  assert.match(noGoals.error, /at least one goal/);
+  assert.match((await api({ type: 'qr:padStop' })).error, /Not dragging/);
+
+  const { tabId: emptyTab } = await openPage(`pad.html?patt=${'Z'.repeat(6)}${PAD_DOC_BOARD.slice(6)}`, 'pad-empty');
+  const empty = await api({ type: 'qr:padSolve', tabId: emptyTab, settings: padSettings(), drag: true });
+  assert.match(empty.error, /empty cells/);
+  assert.equal(await debuggerAttached(emptyTab), false, 'debugger detached after an error');
+
+  const { tabId: plainTab } = await openPage('page.html', 'pad-no-board');
+  const none = await api({ type: 'qr:padSolve', tabId: plainTab, settings: padSettings() });
+  assert.match(none.error, /No dawnGlare board/);
+  assert.equal((await waitIdle()).mode, 'idle');
+});
+
+test('PAD panel in the popup solves the active tab and shows the result', { timeout: TEST_TIMEOUT }, async () => {
+  const { page } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-popup');
+  await apiOk({ type: 'qr:padSaveSettings', settings: padSettings() });
+  const popup = await context.newPage();
+  openPages.add(popup);
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popup.locator('#padGoals li').first().waitFor();
+  assert.equal(await popup.locator('#padGoals li').count(), 1);
+  // Add a second goal: at least 4 combos.
+  await popup.click('#padAddGoal');
+  const second = popup.locator('#padGoals li').nth(1);
+  await second.locator('.goal-type').selectOption('combos');
+  await second.locator('.goal-count').fill('4');
+  assert.equal(await second.locator('.goal-color').isHidden(), true);
+  // The popup page is the active tab now; bring the board page to the front so it is solved.
+  await page.bringToFront();
+  await popup.click('#padSolveBtn');
+  await popup.locator('#padResult').filter({ hasText: 'Solved' }).waitFor();
+  const shown = await popup.locator('#padResult').textContent();
+  assert.match(shown, /\[x\] Row of Light/);
+  assert.match(shown, /\[x\] 4\+ combos/);
+  assert.equal(await popup.locator('#error').isHidden(), true);
+  const { settings } = await apiOk({ type: 'qr:padGetSettings' });
+  assert.deepEqual(settings.goals, [{ type: 'row', color: 'L' }, { type: 'combos', count: 4 }]);
+});
+
+test('PAD drag can be stopped midway and the orb is released', { timeout: TEST_TIMEOUT }, async () => {
+  const { page, tabId } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-stop');
+  // Slow drag so there is time to stop it.
+  const running = api({ type: 'qr:padSolve', tabId, settings: padSettings({ msPerMove: 400 }), drag: true });
+  await waitFor(async () => (await apiOk({ type: 'qr:getState' })).state.pad?.canStop, { message: 'drag to start' });
+  await waitFor(async () => (await page.evaluate(() => window.padLog.path.length)) >= 2, { message: 'first swap' });
+  await apiOk({ type: 'qr:padStop' });
+  const res = await running;
+  assert.equal(res.ok, true, res.error);
+  assert.equal(res.result.stopped, true);
+  assert.equal(res.result.dragged, false);
+  const log = await page.evaluate(() => window.padLog);
+  assert.equal(log.up, 1, 'mouse released after stop');
+  assert.ok(log.path.length < res.result.path.length, 'stopped before the end of the path');
+  const state = await waitIdle();
+  assert.equal(state.lastResult.status, 'stopped');
+  assert.equal(await debuggerAttached(tabId), false);
+});

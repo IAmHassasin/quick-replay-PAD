@@ -169,3 +169,19 @@ test('bundled examples are valid browser scripts', () => {
     assert.deepEqual(validateScript(script, { platform: 'browser' }), [], f);
   }
 });
+
+test('android scripts may have solve steps with a pad setup (PAD fork)', () => {
+  const script = {
+    ...androidScript(),
+    pad: { goals: [{ type: 'row', color: 'L' }, { type: 'combos', count: 7 }], msPerMove: 150, whenUnmet: 'fail' },
+    steps: [{ type: 'tap', x: 1, y: 2 }, { type: 'solve', delayBeforeMs: 300 }],
+  };
+  assert.deepEqual(validateScript(script), []);
+  const { pad, ...noPad } = script;
+  assert.deepEqual(validateScript(noPad), ['pad is required for solve steps']);
+  assert.deepEqual(validateScript({ ...script, pad: { ...pad, goals: [] } }), ['pad.goals must be a non-empty array']);
+  assert.match(validateScript({ ...script, pad: { ...pad, goals: [{ type: 'row', color: 'J' }] } })[0], /pad\.goals\[0\]/);
+  assert.deepEqual(validateScript({ ...script, pad: { ...pad, msPerMove: 5 } }), ['pad.msPerMove must be an integer from 10 to 1000']);
+  // Browser scripts cannot solve.
+  assert.match(validateScript({ ...browserScript(), steps: [{ type: 'solve' }] })[0], /not allowed for this platform/);
+});

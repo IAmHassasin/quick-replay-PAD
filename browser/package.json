@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "lint": "node scripts/lint.js",
-    "test:unit": "node --test test/unit/script.test.js",
+    "test:unit": "node --test test/unit/script.test.js test/unit/pad.test.js",
     "test:e2e": "node --test --test-concurrency=1 test/e2e/extension.test.js",
     "test": "npm run test:unit && npm run test:e2e"
   },

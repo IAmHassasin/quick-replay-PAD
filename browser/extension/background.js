@@ -2,7 +2,10 @@
  * Quick Replay service worker: owns the recording/playback state, script storage and the
  * message API used by the popup (and by the end-to-end tests through `globalThis.QuickReplay`).
  */
+import { ORB_LETTERS, cellLabel, formatBoard, parseBoard } from './lib/pad/board.js';
+import { normalizeGoals, solve } from './lib/pad/solver.js';
 import { FORMAT, normalizeScript, validateScript } from './lib/script.js';
+import { Dragger, readBoard } from './pad-runner.js';
 import { Player } from './player.js';
 import * as store from './store.js';
 
@@ -14,8 +17,10 @@ const RECORDABLE_URL = /^(https?|file):/i;
 
 /** Public state, sent to the popup. */
 const state = {
-  /** @type {'idle' | 'recording' | 'playing'} */
+  /** @type {'idle' | 'recording' | 'playing' | 'solving'} */
   mode: 'idle',
+  /** @type {null | {tabId: number, phase: string}} */
+  pad: null,
   /** @type {null | {tabId: number, startUrl: string, startedAt: string, stepCount: number, injections: number}} */
   recording: null,
   /** @type {null | {tabId: number, name: string, loop: number, repeat: number, step: number, stepCount: number, stepType: string}} */
@@ -269,7 +274,153 @@ chrome.debugger.onEvent.addListener((source, method) => {
 
 chrome.debugger.onDetach.addListener((source, reason) => {
   if (player && source.tabId === player.tabId) player.handleDetach(reason);
+  if (padDragger && source.tabId === padDragger.target.tabId) padDragger.handleDetach(reason);
 });
+
+// ------------------------------------------------------------------ PAD solver (dawnGlare)
+
+const PAD_SETTINGS_KEY = 'qr:padSettings';
+const PAD_DEFAULT_SETTINGS = Object.freeze({
+  goals: [{ type: 'row', color: 'L' }],
+  diagonals: true,
+  maxMoves: 40,
+  timeLimitMs: 3000,
+  msPerMove: 40,
+});
+
+/** @type {Dragger | null} */
+let padDragger = null;
+
+function intInRange(value, name, min, max) {
+  if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${name} must be a whole number from ${min} to ${max}`);
+  return value;
+}
+
+/** Validates PAD settings from the popup; goals are stored with colour letters. */
+function checkPadSettings(input) {
+  const s = { ...PAD_DEFAULT_SETTINGS, ...input };
+  const goals = normalizeGoals(s.goals).map((g) => (g.type === 'combos' ? g : { type: g.type, color: ORB_LETTERS[g.color] }));
+  // Solve & drag must only run for goals the user chose.
+  if (goals.length === 0) throw new Error('Add at least one goal');
+  return {
+    goals,
+    diagonals: Boolean(s.diagonals),
+    maxMoves: intInRange(s.maxMoves, 'Max moves', 1, 200),
+    // The solve runs synchronously in the service worker and blocks its messages meanwhile.
+    timeLimitMs: intInRange(s.timeLimitMs, 'Time limit', 100, 10000),
+    msPerMove: intInRange(s.msPerMove, 'Drag time per move', 10, 2000),
+  };
+}
+
+async function padGetSettings() {
+  const { [PAD_SETTINGS_KEY]: saved } = await chrome.storage.local.get(PAD_SETTINGS_KEY);
+  try {
+    return { settings: checkPadSettings(saved ?? {}) };
+  } catch {
+    return { settings: { ...PAD_DEFAULT_SETTINGS } };
+  }
+}
+
+async function padSaveSettings({ settings }) {
+  const checked = checkPadSettings(settings);
+  await chrome.storage.local.set({ [PAD_SETTINGS_KEY]: checked });
+  return { settings: checked };
+}
+
+function setPadPhase(phase) {
+  state.pad = { ...state.pad, phase };
+  broadcast();
+}
+
+/** Serializable result for the popup. */
+function summarizePad(board, result) {
+  return {
+    status: result.status,
+    reasons: result.reasons,
+    moves: result.moves,
+    path: result.path.map((i) => cellLabel(i, board.cols)),
+    goals: result.goals,
+    combos: result.combos,
+    before: formatBoard(board),
+    afterDrag: result.afterDrag ? formatBoard(board, result.afterDrag) : '',
+    stats: result.stats,
+    dragged: false,
+  };
+}
+
+/**
+ * Reads the dawnGlare board of a tab, solves it and, with `drag`, performs the path when every
+ * goal is met.
+ */
+async function padSolve({ tabId, settings: input, drag }) {
+  if (state.mode !== 'idle') throw new Error(`Cannot solve while ${state.mode}`);
+  const settings = checkPadSettings(input);
+  // Claim the mode before the first await so a second request cannot start in parallel.
+  state.mode = 'solving';
+  state.pad = { tabId: tabId ?? null, phase: 'reading the board', canStop: false };
+  state.lastError = null;
+  state.lastWarning = null;
+  broadcast();
+  let status = 'failed';
+  let dragger = null;
+  try {
+    await chrome.storage.local.set({ [PAD_SETTINGS_KEY]: settings });
+    const id = tabId ?? (await activeTabId());
+    state.pad.tabId = id;
+    if (drag) {
+      dragger = new Dragger(id);
+      padDragger = dragger;
+      await dragger.attach();
+    }
+    const read = await readBoard(id);
+    const board = parseBoard(read.text);
+    setPadPhase('solving');
+    const result = solve(board, settings.goals, {
+      diagonals: settings.diagonals,
+      maxMoves: settings.maxMoves,
+      timeLimitMs: settings.timeLimitMs,
+    });
+    const summary = summarizePad(board, result);
+    status = result.status;
+    if (dragger && result.status === 'solved') {
+      // Positions are read again just before dragging (the debugging bar may have moved the
+      // page since the first read); the orbs themselves must not have changed.
+      await dragger.settled();
+      const again = await readBoard(id);
+      if (again.text !== read.text) throw new Error('The board changed while solving. Solve again.');
+      state.pad = { ...state.pad, phase: `dragging ${result.moves} moves`, canStop: true };
+      broadcast();
+      try {
+        await dragger.drag(again.centers, result.path, settings.msPerMove);
+        summary.dragged = true;
+        status = 'dragged';
+      } catch (err) {
+        if (err?.name !== 'DragStopped') throw err;
+        summary.stopped = true;
+        status = 'stopped';
+      }
+    }
+    return { result: summary };
+  } catch (err) {
+    if (err?.name !== 'DragStopped') throw err;
+    // The debugging bar was dismissed before the drag started.
+    status = 'stopped';
+    throw new Error('Stopped before the drag started.');
+  } finally {
+    if (dragger) await dragger.detach();
+    padDragger = null;
+    state.mode = 'idle';
+    state.pad = null;
+    state.lastResult = { kind: 'pad', status, name: 'PAD solver', at: new Date().toISOString() };
+    broadcast();
+  }
+}
+
+async function padStop() {
+  if (!padDragger || !state.pad?.canStop) throw new Error('Not dragging');
+  padDragger.stop();
+  return {};
+}
 
 // ------------------------------------------------------------------ scripts
 
@@ -304,6 +455,10 @@ const handlers = {
     return {};
   },
   'qr:importScript': importScript,
+  'qr:padGetSettings': padGetSettings,
+  'qr:padSaveSettings': padSaveSettings,
+  'qr:padSolve': padSolve,
+  'qr:padStop': padStop,
   'qr:clearMessages': async () => {
     state.lastError = null;
     state.lastWarning = null;

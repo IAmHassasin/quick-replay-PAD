@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PAD board fixture</title>
+  <style>
+    body { margin: 0; padding: 40px 20px; font-family: sans-serif; }
+    #board { position: relative; width: 540px; height: 450px; user-select: none; }
+    #tiles { display: grid; grid-template-columns: repeat(6, 90px); grid-auto-rows: 90px; }
+    .tile { box-sizing: border-box; border: 2px solid #333; }
+    .red { background: #e33; } .blue { background: #36e; } .green { background: #3b4; }
+    .light { background: #ee4; } .dark { background: #a3c; } .heart { background: #f9c; }
+    .black { background: #000; } .xbomb { background: #777; }
+  </style>
+</head>
+<body>
+  <!--
+    Minimal stand-in for the dawnGlare simulator (pad.dawnglare.com): same DOM contract
+    (#board > #tiles > .tile[tilecolor], 90px cells, ?patt= board letters) and the same drag
+    behaviour the extension relies on: the held orb swaps with every cell the pointer enters,
+    and a 20px area around each inner tile corner suspends swapping. It records the swap path
+    in window.padLog for the end-to-end test.
+  -->
+  <div id="board"><div id="tiles"></div></div>
+  <script>
+    const COLORS = { R: 'red', B: 'blue', G: 'green', L: 'light', D: 'dark', H: 'heart', Z: 'black', X: 'xbomb' };
+    const W = 6, H = 5, SIZE = 90, CORNER = 10;
+    const patt = new URLSearchParams(location.search).get('patt') || 'LGHLBBLRDDGLBRRLRRHBRGBLLBBRRD';
+    const tilesEl = document.getElementById('tiles');
+    const tiles = [];
+    for (let i = 0; i < W * H; i++) {
+      const tile = document.createElement('div');
+      tilesEl.append(tile);
+      tiles.push(tile);
+      setColor(i, COLORS[patt[i]]);
+    }
+    function setColor(i, color) {
+      tiles[i].className = `tile ${color}`;
+      tiles[i].setAttribute('tilecolor', color);
+      tiles[i].setAttribute('style', 'opacity:1');
+    }
+    window.padLog = { path: [], down: 0, up: 0, trusted: true };
+    let held = -1;
+    function cellAt(event) {
+      const r = document.getElementById('board').getBoundingClientRect();
+      const x = event.clientX - r.left, y = event.clientY - r.top;
+      const c = Math.floor(x / SIZE), row = Math.floor(y / SIZE);
+      if (c < 0 || c >= W || row < 0 || row >= H) return -1;
+      const nearX = Math.min(x - c * SIZE, (c + 1) * SIZE - x) < CORNER && x > CORNER && x < W * SIZE - CORNER;
+      const nearY = Math.min(y - row * SIZE, (row + 1) * SIZE - y) < CORNER && y > CORNER && y < H * SIZE - CORNER;
+      return nearX && nearY ? -1 : row * W + c;
+    }
+    document.addEventListener('mousedown', (e) => {
+      window.padLog.trusted &&= e.isTrusted;
+      held = cellAt(e);
+      window.padLog.down++;
+      if (held >= 0) window.padLog.path.push(held);
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (held < 0) return;
+      window.padLog.trusted &&= e.isTrusted;
+      const cell = cellAt(e);
+      if (cell < 0 || cell === held) return;
+      const a = tiles[held].getAttribute('tilecolor');
+      setColor(held, tiles[cell].getAttribute('tilecolor'));
+      setColor(cell, a);
+      held = cell;
+      window.padLog.path.push(cell);
+    });
+    document.addEventListener('mouseup', () => {
+      held = -1;
+      window.padLog.up++;
+    });
+    window.boardText = () => tiles.map((t) => Object.keys(COLORS).find((k) => COLORS[k] === t.getAttribute('tilecolor'))).join('');
+  </script>
+</body>
+</html>

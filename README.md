@@ -4,8 +4,10 @@ Open-source record & replay automation in the spirit of Click Assistant, **witho
 script length, duration or loop count.
 
 > **quick-replay-PAD** is a fork of [quick-replay](https://github.com/IAmHassasin/quick-replay)
-> that adds a Puzzle & Dragons board solver (planned, not implemented yet). Design notes:
-> [`docs/PAD-SOLVER.md`](docs/PAD-SOLVER.md).
+> that adds a Puzzle & Dragons board solver: the Android app **Quick Replay PAD** reads the board
+> from the screen, solves it for your goals (row, 3x3, cross, combos, ...) and drags the path, also
+> as a `solve` step inside recorded scripts; the browser extension does the same on the dawnGlare
+> simulator. Design notes and measurements: [`docs/PAD-SOLVER.md`](docs/PAD-SOLVER.md).
 
 | Part | What it is | Status |
 |---|---|---|
@@ -19,10 +21,12 @@ Design and verified technical decisions: [`docs/PLAN.md`](docs/PLAN.md).
 
 ### Download
 
-Prebuilt APKs are attached to [GitHub Releases](https://github.com/IAmHassasin/quick-replay/releases)
-(latest: [v0.1.3](https://github.com/IAmHassasin/quick-replay/releases/tag/v0.1.3)). Download
-`quick-replay-<version>.apk` on the phone, allow "Install unknown apps" for the browser or file
-manager, and install it. Requires Android 8.0+ (API 26).
+Prebuilt APKs of **Quick Replay PAD** are attached to
+[GitHub Releases](https://github.com/IAmHassasin/quick-replay-PAD/releases) (first: v0.1.0).
+Download `quick-replay-pad-<version>.apk` on the phone, allow "Install unknown apps" for the
+browser or file manager, and install it. Requires Android 8.0+ (API 26); SOLVE needs Android 11+
+(API 30, screenshots from the accessibility service). The app id is `dev.quickreplay.pad`, so it
+installs next to the original Quick Replay (`dev.quickreplay`).
 
 The released APK is the **debug build** (signed with a debug key, not published on Play Store), so
 Play Protect may warn before installing. Updating from a build signed with a different key requires
@@ -30,8 +34,8 @@ uninstalling the old app first; saved scripts are lost unless exported as JSON b
 
 To publish a new version: bump `versionCode` / `versionName` in `android/app/build.gradle.kts`,
 run `./gradlew testDebugUnitTest exportApk`, then
-`gh release create v<version> "android/dist/quick-replay-<version>.apk" --title "Quick Replay v<version>"`
-(copy the exported `Quick Replay <version>.apk` to that name first; GitHub replaces spaces in
+`gh release create v<version> "android/dist/quick-replay-pad-<version>.apk" --title "Quick Replay PAD v<version>"`
+(copy the exported `Quick Replay PAD <version>.apk` to that name first; GitHub replaces spaces in
 asset names).
 
 ### Build
@@ -43,13 +47,13 @@ cd android
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 # APK: android/app/build/outputs/apk/debug/app-debug.apk
 ./gradlew exportApk
-# Same debug APK copied to android/dist/"Quick Replay <versionName>.apk" (git-ignored)
+# Same debug APK copied to android/dist/"Quick Replay PAD <versionName>.apk" (git-ignored)
 ```
 
 ### Use
 
-1. Install the APK, open **Quick Replay**, tap **Enable service** and turn on *Quick Replay* in
-   Accessibility settings. A floating panel appears (drag it by the `⋮⋮` handle).
+1. Install the APK, open **Quick Replay PAD**, tap **Enable service** and turn on *Quick Replay PAD*
+   in Accessibility settings. A floating panel appears (drag it by the `⋮⋮` handle).
 2. **REC** → use your phone normally; every tap, long press and swipe is recorded and passed
    through to the app underneath → **SAVE**. Each recorded action is shown on screen (blue ripple =
    tap, orange ring with timer = long press, green arrow = swipe, with a label such as
@@ -64,6 +68,15 @@ cd android
    loops; the **Settings** card sets the repeat count for new recordings. **Combined scripts** chain
    recordings (e.g. A ×1 → B ×3 → C ×2) into one playable, exportable script. **How to use** opens
    the in-app guide; **Playground** is a test screen; scripts import/export as JSON.
+5. **PAD solver** (Android 11+). Main screen → *PAD solver* → **Edit PAD setup**: goals (row,
+   column, 3x3, cross, L, 4 in a line of a colour, or at least N combos; all must be met), **drag
+   time per move** (default 150 ms; raise it if the game misses cells), diagonal moves, max moves,
+   search time, board size, and whether to drag the best path when the goals cannot be met.
+   **SOLVE** on the panel takes a screenshot, waits until the board stops moving, reads it, solves
+   it and drags the path. While recording, SOLVE is saved as a `solve` step (not the drag): e.g.
+   *tap, tap, SOLVE*, then SAVE when the combos are over (that wait becomes the pause between
+   loops). The script keeps the setup it was recorded with (editable per script: **PAD setup**).
+   A solve step that cannot read the board or meet the goals stops the playback.
 
 Timing: pauses and press durations are recorded in ms and replayed on a timeline from the start of
 the run, so latency does not add up. Measured on the Android 15 emulator: recording
@@ -109,6 +122,7 @@ See [`browser/README.md`](browser/README.md).
 
 | Area | State |
 |---|---|
+| Quick Replay PAD 0.1.0 (2026-10-18) | Android SOLVE button and `solve` script step (screenshot → board recognition → Kotlin solver → drag), PAD setup per script; browser extension solver on dawnGlare. See [`docs/PAD-SOLVER.md`](docs/PAD-SOLVER.md) for tests and emulator measurements |
 | Android app | Working MVP; unit tests 14/14, lint without errors; emulator demo (Android 15) passes: replay 6 taps / 2 long presses / 4 swipes, record → forward → replay 2/1/1, panel buttons verified |
 | Browser extension | Working MVP; lint OK, unit 14/14, Playwright e2e 5/5 (headless Chromium only) |
 | Script format | `quickreplay/v1` schema validated with Ajv against the examples; `quickreplay-sequence/v1` (combined scripts, Android) added 2026-10-17, its schema not yet Ajv-validated |

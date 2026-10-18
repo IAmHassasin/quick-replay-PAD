@@ -36,6 +36,7 @@ class GuideActivity : Activity() {
         section(content, R.string.guide_repeat_title, R.string.guide_repeat_body)
         section(content, R.string.guide_combo_title, R.string.guide_combo_body)
         section(content, R.string.guide_files_title, R.string.guide_files_body)
+        section(content, R.string.guide_pad_title, R.string.guide_pad_body)
         section(content, R.string.guide_tips_title, R.string.guide_tips_body)
         content.addView(Ui.buttonRow(this, Ui.button(this, "Back", primary = true) { finish() }), Ui.spacedParams(this, 20))
 

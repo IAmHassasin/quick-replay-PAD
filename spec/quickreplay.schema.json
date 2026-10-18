@@ -20,13 +20,17 @@
     },
     "startUrl": { "type": "string" },
     "createdAt": { "type": "string" },
+    "pad": {
+      "$ref": "#/$defs/pad",
+      "description": "android, PAD fork: setup used by every solve step; required when a solve step is present"
+    },
     "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } }
   },
   "if": { "properties": { "platform": { "const": "android" } } },
   "then": {
     "required": ["screen"],
     "properties": {
-      "steps": { "items": { "properties": { "type": { "enum": ["tap", "longPress", "swipe", "wait"] } } } }
+      "steps": { "items": { "properties": { "type": { "enum": ["tap", "longPress", "swipe", "wait", "solve"] } } } }
     }
   },
   "else": {
@@ -38,6 +42,37 @@
   },
   "$defs": {
     "delay": { "type": "integer", "minimum": 0 },
+    "goal": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "enum": ["row", "column", "square", "cross", "lshape", "tpa"] },
+            "color": { "enum": ["R", "B", "G", "L", "D", "H"] }
+          },
+          "required": ["type", "color"]
+        },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "combos" }, "count": { "type": "integer", "minimum": 1 } },
+          "required": ["type", "count"]
+        }
+      ]
+    },
+    "pad": {
+      "type": "object",
+      "required": ["goals"],
+      "properties": {
+        "goals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/goal" } },
+        "rows": { "type": "integer", "minimum": 3, "maximum": 9, "default": 5 },
+        "cols": { "type": "integer", "minimum": 3, "maximum": 9, "default": 6 },
+        "diagonals": { "type": "boolean", "default": true },
+        "maxMoves": { "type": "integer", "minimum": 1, "maximum": 50, "default": 40 },
+        "timeLimitMs": { "type": "integer", "minimum": 100, "maximum": 10000, "default": 3000 },
+        "msPerMove": { "type": "integer", "minimum": 10, "maximum": 1000, "default": 150 },
+        "whenUnmet": { "enum": ["fail", "dragBest"], "default": "fail" }
+      }
+    },
     "point": {
       "type": "object",
       "required": ["x", "y", "t"],
@@ -78,6 +113,11 @@
         {
           "properties": { "type": { "const": "wait" }, "ms": { "type": "integer", "minimum": 0 } },
           "required": ["type", "ms"]
+        },
+        {
+          "description": "android, PAD fork: read the board on screen, solve it with the script's pad setup and drag the path",
+          "properties": { "type": { "const": "solve" } },
+          "required": ["type"]
         },
         {
           "properties": { "type": { "const": "navigate" }, "url": { "type": "string" } },

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Quick Replay</string>
+    <string name="app_name">Quick Replay PAD</string>
     <string name="playground">Quick Replay Playground</string>
     <string name="guide">How to use Quick Replay</string>
     <string name="sequence_editor">Combined script</string>
-    <string name="service_description">Shows a floating panel to record your touches and replay them. Quick Replay only injects the gestures you recorded or imported; it does not read screen content or send data anywhere.</string>
+    <string name="service_description">Shows a floating panel to record your touches and replay them, and to solve Puzzle &amp; Dragons boards. Quick Replay PAD only injects the gestures you recorded or imported and the drags it solves. It takes a screenshot only when you press SOLVE or a script runs a solve step; the screenshot is read on the phone, never stored and never sent anywhere.</string>
 
     <!-- In-app guide (GuideActivity). -->
     <string name="guide_intro">Record what you do on the screen once, then let Quick Replay repeat it for you: as many steps and loops as you like.</string>
@@ -35,6 +35,9 @@
 
     <string name="guide_files_title">6. Import, export and share</string>
     <string name="guide_files_body">• Export saves a JSON file (.quickreplay.json for scripts, .quickreplay-combo.json for combined scripts). Import JSON accepts both.\n• Files are plain text, so you can keep them in version control or edit them. The format is described in docs/script-format.md in the project repository.</string>
+
+    <string name="guide_pad_title">7. PAD solver (Puzzle &amp; Dragons)</string>
+    <string name="guide_pad_body">• Main screen → PAD solver → Edit PAD setup: the goals (row, column, 3x3, cross, L, 4 in a line of a colour, or a number of combos), the drag time per move, diagonal moves and the search time.\n• SOLVE on the panel (Android 11+): takes a screenshot, finds the board, solves it and drags the path. The whole board must be visible.\n• While recording, SOLVE is saved as a step (not the drag). The script copies the PAD setup when you tap REC and always replays with it. Example: tap, tap, SOLVE, then SAVE once the combos are over; the wait before SAVE becomes the pause between loops.\n• A solve step waits until the board stops moving, then stops the playback if it cannot read the board or meet the goals (or drags the best path if you allowed that).\n• If the game misses cells, raise the drag time per move (Script → PAD setup for a recorded script).</string>
 
     <string name="guide_tips_title">Tips and limits</string>
     <string name="guide_tips_body">• Try a new script on the Playground screen first: it counts taps, long presses and swipes.\n• One finger only (no pinch). A single press or swipe is limited by Android to 60 s; scripts themselves have no limit.\n• Touches on the floating panel are not recorded.\n• PLAY says \"No script selected\": tap Use on a script or combined script.\n• Replay hits the wrong place: the target app\'s layout changed, or the screen was rotated. Record again.\n• Quick Replay does not read screen content, shows no ads and sends no data anywhere.</string>

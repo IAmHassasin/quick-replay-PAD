@@ -6,19 +6,23 @@ import android.content.Intent
 import android.util.Log
 import dev.quickreplay.model.ScriptJson
 import dev.quickreplay.model.SequenceJson
+import dev.quickreplay.pad.PadSetup
 import dev.quickreplay.service.QuickReplayService
 import dev.quickreplay.store.AppSettings
 import dev.quickreplay.store.ScriptStore
+import org.json.JSONObject
 import java.io.File
 
 /**
  * Debug-build-only commands, e.g.
- * `adb shell am broadcast -n dev.quickreplay/.debug.DebugCommandReceiver -a dev.quickreplay.debug.PLAY`
+ * `adb shell am broadcast -n dev.quickreplay.pad/dev.quickreplay.debug.DebugCommandReceiver -a dev.quickreplay.debug.PLAY`
  *
  * Actions: IMPORT (extra `file`: script or combined script inside the app's external `import/`
  * folder), PLAY (active script or combined script), STOP, PAUSE, RESUME,
  * RECORD_START, RECORD_STOP, SETTINGS (extras `show_touches`, `show_panel` boolean, `default_repeat` int),
- * DUMP (logs the active script).
+ * DUMP (logs the active script), SOLVE (same as the panel's SOLVE button), MEMORY (GC, then heap use), PAD_SETUP (extra `json`:
+ * a `pad` object as in a script, e.g. {"goals":[{"type":"row","color":"L"}],"msPerMove":100};
+ * without `json` it logs the current setup).
  */
 class DebugCommandReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -51,6 +55,18 @@ class DebugCommandReceiver : BroadcastReceiver() {
                         service?.updatePanelVisibility()
                     }
                     "show_touches=${settings.showPlaybackTouches} default_repeat=${settings.defaultRepeat} show_panel=${settings.showPanel}"
+                }
+                "SOLVE" -> service?.solveNow()?.let { "solving" } ?: "service off"
+                "MEMORY" -> {
+                    // Collect garbage first, so the number is what is really retained.
+                    val runtime = Runtime.getRuntime()
+                    repeat(3) { runtime.gc() }
+                    "heap used=${(runtime.totalMemory() - runtime.freeMemory()) / 1_048_576} MB max=${runtime.maxMemory() / 1_048_576} MB"
+                }
+                "PAD_SETUP" -> {
+                    val settings = AppSettings(context)
+                    intent.getStringExtra("json")?.let { settings.padSetup = PadSetup.fromJson(JSONObject(it)) }
+                    settings.padSetup.toJson().toString()
                 }
                 "DUMP" -> store.activeId?.let { id ->
                     store.load(id)?.let(ScriptJson::toJson) ?: store.loadSequence(id)?.let(SequenceJson::toJson)

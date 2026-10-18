@@ -8,7 +8,10 @@
 export const FORMAT = 'quickreplay/v1';
 export const PLATFORMS = Object.freeze(['android', 'browser']);
 export const BROWSER_STEP_TYPES = Object.freeze(['navigate', 'click', 'type', 'key', 'scroll', 'wait']);
-export const ANDROID_STEP_TYPES = Object.freeze(['tap', 'longPress', 'swipe', 'wait']);
+export const ANDROID_STEP_TYPES = Object.freeze(['tap', 'longPress', 'swipe', 'wait', 'solve']);
+/** Goal types and colours of the `pad` setup (android solve steps). */
+const PAD_SHAPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa'];
+const PAD_COLORS = ['R', 'B', 'G', 'L', 'D', 'H'];
 export const MOUSE_BUTTONS = Object.freeze(['left', 'middle', 'right']);
 
 const DEFAULT_MAX_ERRORS = 50;
@@ -34,6 +37,7 @@ const STEP_FIELDS = {
   ],
   swipe: [], // points are checked separately
   wait: [['ms', true, isNonNegativeInt, 'an integer >= 0']],
+  solve: [], // uses the script's `pad` setup
   navigate: [['url', true, (v) => typeof v === 'string', 'a string']],
   click: [
     ['selector', false, (v) => typeof v === 'string', 'a string'],
@@ -98,6 +102,7 @@ export function validateScript(obj, options = {}) {
   }
   if (obj.startUrl !== undefined && typeof obj.startUrl !== 'string') add('startUrl must be a string');
   if (obj.createdAt !== undefined && typeof obj.createdAt !== 'string') add('createdAt must be a string');
+  if (obj.pad !== undefined) validatePad(obj.pad, add);
 
   if (!Array.isArray(obj.steps)) {
     add('steps must be an array');
@@ -111,8 +116,35 @@ export function validateScript(obj, options = {}) {
   for (let i = 0; i < obj.steps.length && errors.length < maxErrors; i++) {
     validateStep(obj.steps[i], `steps[${i}]`, allowed, add);
   }
+  if (obj.pad === undefined && obj.steps.some((s) => s?.type === 'solve')) add('pad is required for solve steps');
   if (errors.length >= maxErrors) errors.push('(further errors omitted)');
   return errors;
+}
+
+/** Checks the `pad` setup of an android script (same rules as the Android app's PadSetup). */
+function validatePad(pad, add) {
+  if (!isObject(pad)) {
+    add('pad must be an object');
+    return;
+  }
+  if (!Array.isArray(pad.goals) || pad.goals.length === 0) {
+    add('pad.goals must be a non-empty array');
+  } else {
+    pad.goals.forEach((g, i) => {
+      const ok = isObject(g) && (g.type === 'combos'
+        ? Number.isInteger(g.count) && g.count >= 1
+        : PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color));
+      if (!ok) add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H } or { type: "combos", count: integer >= 1 }`);
+    });
+  }
+  const ranges = [['rows', 3, 9], ['cols', 3, 9], ['maxMoves', 1, 50], ['timeLimitMs', 100, 10000], ['msPerMove', 10, 1000]];
+  for (const [k, min, max] of ranges) {
+    if (pad[k] !== undefined && !(Number.isInteger(pad[k]) && pad[k] >= min && pad[k] <= max)) {
+      add(`pad.${k} must be an integer from ${min} to ${max}`);
+    }
+  }
+  if (pad.diagonals !== undefined && typeof pad.diagonals !== 'boolean') add('pad.diagonals must be a boolean');
+  if (pad.whenUnmet !== undefined && !['fail', 'dragBest'].includes(pad.whenUnmet)) add('pad.whenUnmet must be "fail" or "dragBest"');
 }
 
 function validateStep(step, path, allowedTypes, add) {

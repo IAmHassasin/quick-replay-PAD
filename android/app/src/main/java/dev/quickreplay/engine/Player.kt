@@ -4,6 +4,7 @@ import dev.quickreplay.model.Script
 import dev.quickreplay.model.ScriptSequence
 import dev.quickreplay.model.SequencePart
 import dev.quickreplay.model.Step
+import dev.quickreplay.pad.PadSetup
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -16,6 +17,17 @@ fun interface GestureDispatcher {
     /** Same, also told which [step] the gesture comes from (e.g. to label it on screen). */
     suspend fun dispatch(gesture: GestureSpec, step: Step): Boolean = dispatch(gesture)
 }
+
+/**
+ * Runs a `solve` step: reads the board on screen, solves it with [setup] and drags the path.
+ * Returns when the drag is done; throws [SolveFailedException] when the step cannot be done.
+ */
+fun interface SolveRunner {
+    suspend fun solve(setup: PadSetup)
+}
+
+/** A `solve` step failed (board not found, goals impossible, ...); playback stops with [message]. */
+class SolveFailedException(message: String) : Exception(message)
 
 /**
  * [loop]/[step] refer to the whole script (or the whole sequence). For a sequence, [part] is the
@@ -47,6 +59,8 @@ class Player(
     private val maxGestureDurationMs: Long,
     private val clock: () -> Long,
     private val pauseGate: PauseGate = PauseGate(),
+    /** Needed for scripts with `solve` steps. */
+    private val solveRunner: SolveRunner? = null,
     private val onProgress: (PlaybackProgress) -> Unit = {},
 ) {
     suspend fun play(script: Script): PlaybackProgress {
@@ -113,6 +127,12 @@ class Player(
                 timeline.wait(step.delayBeforeMs)
                 if (step is Step.Wait) {
                     timeline.wait(step.ms)
+                } else if (step is Step.Solve) {
+                    val setup = script.pad ?: throw SolveFailedException("The script has no PAD setup")
+                    val runner = solveRunner ?: throw SolveFailedException("Solving is not available")
+                    runner.solve(setup)
+                    // A solve takes as long as it takes; the next pause counts from its end.
+                    timeline.restart()
                 } else {
                     val gesture = GesturePlan.of(step, maxGestureDurationMs) ?: return@forEachIndexed
                     if (!dispatcher.dispatch(gesture, step)) failed++
@@ -181,6 +201,11 @@ internal class Timeline(private val clock: () -> Long, private val gate: PauseGa
             val pausedMeanwhile = withTimeoutOrNull(remaining) { gate.awaitPaused() } != null
             if (!pausedMeanwhile && !gate.isPaused) return
         }
+    }
+
+    /** Continues the plan from now (after a step of unknown duration, e.g. `solve`). */
+    fun restart() {
+        cursor = clock()
     }
 
     /**

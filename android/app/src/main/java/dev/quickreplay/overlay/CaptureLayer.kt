@@ -96,6 +96,11 @@ class CaptureLayer(
         shown = false
     }
 
+    /** Hides the border and markers (the layer stays in place) so a screenshot does not show them. */
+    fun setHiddenForCapture(hidden: Boolean) {
+        alpha = if (hidden) 0f else 1f
+    }
+
     /** While forwarding a gesture the layer must let touches through to the app below. */
     fun setPassThrough(enabled: Boolean) {
         busy = enabled
@@ -119,7 +124,7 @@ class CaptureLayer(
             is Step.Tap -> TouchMarkers.Kind.TAP to listOf(step.x to step.y)
             is Step.LongPress -> TouchMarkers.Kind.LONG_PRESS to listOf(step.x to step.y)
             is Step.Swipe -> TouchMarkers.Kind.SWIPE to step.points.map { it.x to it.y }
-            is Step.Wait -> return null
+            is Step.Wait, is Step.Solve -> return null
         }
         val duration = GesturePlan.of(step, Long.MAX_VALUE)?.durationMs ?: 0
         markers.add(kind, points, TouchMarkers.label(number, kind, duration))
