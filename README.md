@@ -13,6 +13,23 @@ Design and verified technical decisions: [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Android
 
+### Download
+
+Prebuilt APKs are attached to [GitHub Releases](https://github.com/IAmHassasin/quick-replay/releases)
+(latest: [v0.1.3](https://github.com/IAmHassasin/quick-replay/releases/tag/v0.1.3)). Download
+`quick-replay-<version>.apk` on the phone, allow "Install unknown apps" for the browser or file
+manager, and install it. Requires Android 8.0+ (API 26).
+
+The released APK is the **debug build** (signed with a debug key, not published on Play Store), so
+Play Protect may warn before installing. Updating from a build signed with a different key requires
+uninstalling the old app first; saved scripts are lost unless exported as JSON beforehand.
+
+To publish a new version: bump `versionCode` / `versionName` in `android/app/build.gradle.kts`,
+run `./gradlew testDebugUnitTest exportApk`, then
+`gh release create v<version> "android/dist/quick-replay-<version>.apk" --title "Quick Replay v<version>"`
+(copy the exported `Quick Replay <version>.apk` to that name first; GitHub replaces spaces in
+asset names).
+
 ### Build
 
 Requirements: JDK 17+ (21 tested), Android SDK with platform 36.
