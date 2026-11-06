@@ -28,8 +28,8 @@ import dev.quickreplay.store.LibraryEntry
 
 /**
  * Menu opened from the floating panel's ☰ button: open the app, choose the active script or
- * combined script, rename it. Tapping outside closes it. The window only takes keyboard focus
- * while the rename field is shown.
+ * combined script, rename it, or delete it. Tapping outside closes it. The window only takes
+ * keyboard focus while the rename field is shown.
  */
 class OverlayMenu(
     context: Context,
@@ -46,6 +46,9 @@ class OverlayMenu(
 
         /** Renames [id]; returns an error message, or null on success. */
         fun rename(id: String, name: String): String?
+
+        /** Deletes [id]; returns an error message, or null on success. */
+        fun delete(id: String): String?
         fun openApp()
     }
 
@@ -143,6 +146,10 @@ class OverlayMenu(
             item("Rename script…", enabled = activeName != null) { if (activeId != null && activeName != null) showRename(activeId, activeName) },
             spaced(8),
         )
+        root.addView(
+            item("Delete script…", enabled = activeName != null) { if (activeId != null && activeName != null) showDelete(activeId, activeName) },
+            spaced(8),
+        )
         root.addView(item("Close") { hide() }, spaced(8))
         if (shown) place()
     }
@@ -215,6 +222,27 @@ class OverlayMenu(
         showKeyboardWhenFocused(input)
     }
 
+    /** [id] is fixed when the page opens, so Delete removes that script even if the active one changes. */
+    private fun showDelete(id: String, current: String) {
+        root.removeAllViews()
+        root.addView(text("Delete \"$current\"?", 15f, bold = true))
+        root.addView(text("This cannot be undone.", 13f, MUTED), spaced(4))
+        val error = text("", 12f, ERROR)
+        val remove = {
+            val message = actions.delete(id)
+            if (message == null) hide() else error.text = message
+        }
+        root.addView(error, spaced(8))
+        val buttons = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        buttons.addView(item("Delete", danger = true) { remove() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        buttons.addView(
+            item("Cancel") { showMain() },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(8) },
+        )
+        root.addView(buttons, spaced(8))
+        if (shown) place()
+    }
+
     /**
      * The window only becomes focusable now, and the IME ignores requests from a window that does
      * not have focus yet; ask as soon as it gets focus.
@@ -269,13 +297,13 @@ class OverlayMenu(
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-    private fun item(label: String, primary: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) = Button(context).apply {
+    private fun item(label: String, primary: Boolean = false, danger: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) = Button(context).apply {
         text = label
         isAllCaps = false
         textSize = 14f
-        gravity = if (primary) Gravity.CENTER else Gravity.CENTER_VERTICAL or Gravity.START
+        gravity = if (primary || danger) Gravity.CENTER else Gravity.CENTER_VERTICAL or Gravity.START
         setTextColor(if (enabled) FG else MUTED)
-        background = rounded(if (primary) ACCENT else ITEM_BG)
+        background = rounded(if (danger) DANGER else if (primary) ACCENT else ITEM_BG)
         setPadding(dp(12), dp(8), dp(12), dp(8))
         minHeight = 0
         minimumHeight = dp(44)
@@ -300,6 +328,7 @@ class OverlayMenu(
         const val OK = 0xFF3ECF8E.toInt()
         const val ERROR = 0xFFFF6B6B.toInt()
         const val ACCENT = 0xFF4F8CFF.toInt()
+        const val DANGER = 0xFF8C2F2F.toInt()
         const val ITEM_BG = 0xFF262A33.toInt()
         const val ACTIVE_BG = 0xFF1F3A2E.toInt()
         const val MAX_VISIBLE_ITEMS = 6

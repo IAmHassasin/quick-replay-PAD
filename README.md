@@ -62,7 +62,7 @@ cd android
 3. **PLAY** replays the active script; **STOP** stops it; **PAUSE** / **RESUME** (shown while
    playing) holds the script and continues where it stopped, including the rest of a running pause.
    Replayed gestures are drawn the same way (Settings → *Show touches while replaying*).
-   **☰** opens a menu: open the app, change the active script or combined script, rename it.
+   **☰** opens a menu: open the app, change the active script or combined script, rename it, or delete it.
    Settings → *Show floating panel* hides the panel when idle; it still appears while a script plays.
 4. In the app: **Settings** on a script sets its name, repeat count / loop forever and pause between
    loops; the **Settings** card sets the repeat count for new recordings. **Combined scripts** chain

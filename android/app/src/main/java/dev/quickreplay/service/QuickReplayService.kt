@@ -624,6 +624,21 @@ class QuickReplayService : AccessibilityService() {
             }
         }
 
+        override fun delete(id: String): String? = try {
+            val name = store.nameOf(id)
+            if (!store.remove(id)) {
+                "The script no longer exists"
+            } else {
+                if (ReplayState.flow.value is ReplayState.Idle) {
+                    ReplayState.mutable.value = ReplayState.Idle("Deleted ${name ?: "script"}")
+                }
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "delete failed: ${e.message}")
+            "Could not delete: ${e.message}"
+        }
+
         override fun openApp() {
             startActivity(
                 Intent(this@QuickReplayService, MainActivity::class.java)

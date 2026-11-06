@@ -13,8 +13,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // versionCode = major * 10000 + minor * 100 + patch, so it always grows with versionName.
-        versionCode = 100
-        versionName = "0.1.0"
+        versionCode = 101
+        versionName = "0.1.1"
     }
 
     buildTypes {

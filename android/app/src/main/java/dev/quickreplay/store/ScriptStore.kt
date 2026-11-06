@@ -79,6 +79,26 @@ class ScriptStore(context: Context) {
         return false
     }
 
+    /**
+     * Deletes a script or combined script and clears [activeId] when it pointed at [id].
+     * Returns false if [id] does not exist. A failed delete throws instead of reporting success.
+     */
+    fun remove(id: String): Boolean {
+        val script = file(dir, id)
+        if (script.exists()) {
+            check(script.delete()) { "Could not delete script" }
+            if (activeId == id) activeId = null
+            return true
+        }
+        val sequence = file(sequenceDir, id)
+        if (sequence.exists()) {
+            check(sequence.delete()) { "Could not delete script" }
+            if (activeId == id) activeId = null
+            return true
+        }
+        return false
+    }
+
     var activeId: String?
         get() = prefs.getString(KEY_ACTIVE, null)?.takeIf { file(dir, it).exists() || file(sequenceDir, it).exists() }
         set(value) = prefs.edit().putString(KEY_ACTIVE, value).apply()
