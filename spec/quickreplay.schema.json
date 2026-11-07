@@ -56,6 +56,16 @@
           "type": "object",
           "properties": { "type": { "const": "combos" }, "count": { "type": "integer", "minimum": 1 } },
           "required": ["type", "count"]
+        },
+        {
+          "type": "object",
+          "description": "One combo of the colour with at least `min` connected orbs (at most rows x cols). A repeated goal needs another combo.",
+          "properties": {
+            "type": { "const": "blob" },
+            "color": { "enum": ["R", "B", "G", "L", "D", "H"] },
+            "min": { "type": "integer", "minimum": 3, "maximum": 81 }
+          },
+          "required": ["type", "color", "min"]
         }
       ]
     },

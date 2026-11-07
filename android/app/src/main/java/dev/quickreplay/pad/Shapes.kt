@@ -110,4 +110,34 @@ object Shapes {
         }
         return out
     }
+
+    /** All [h] x [w] rectangles on the board, row-major; each is its sorted cell indices (`rectanglePlacements` in JS). */
+    fun rectanglePlacements(h: Int, w: Int, rows: Int, cols: Int): List<IntArray> {
+        val out = ArrayList<IntArray>()
+        for (r in 0..rows - h) for (c in 0..cols - w) {
+            out += IntArray(h * w) { k -> (r + k / w) * cols + c + k % w }
+        }
+        return out
+    }
+
+    /** Blob placements may be up to this many orbs larger than the goal's `min`. */
+    private const val BLOB_SLACK = 2
+
+    /**
+     * Target areas for a `blob` goal (port of `blobPlacements`, same order): every filled rectangle
+     * with `min <= h * w <= min + 2` and a side of at least 3, by height, width, row, column; when
+     * none is that close to [min], the rectangles of the smallest area >= [min]. Not exact.
+     */
+    fun blobPlacements(min: Int, rows: Int, cols: Int): List<Placement> {
+        val sizes = ArrayList<Pair<Int, Int>>()
+        for (h in 1..rows) for (w in 1..cols) if (h * w >= min && maxOf(h, w) >= 3) sizes += h to w
+        var limit = min + BLOB_SLACK
+        if (sizes.none { (h, w) -> h * w <= limit }) limit = sizes.minOf { (h, w) -> h * w }
+        val out = ArrayList<Placement>()
+        for ((h, w) in sizes) {
+            if (h * w > limit) continue
+            for (cells in rectanglePlacements(h, w, rows, cols)) out += Placement(cells, exact = false)
+        }
+        return out
+    }
 }

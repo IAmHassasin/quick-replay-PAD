@@ -258,13 +258,19 @@ function addGoalRow(goal) {
   const count = item.querySelector('.goal-count');
   for (const value of SHAPE_TYPES) type.append(new Option(SHAPE_LABELS[value], value));
   type.append(new Option('Combos (at least)', 'combos'));
+  type.append(new Option('Connected orbs (at least)', 'blob'));
   for (const letter of GOAL_COLORS) color.append(new Option(ORB_NAMES[ORB_LETTERS.indexOf(letter)], letter));
   type.value = goal.type;
   color.value = goal.color ?? 'L';
-  count.value = String(goal.count ?? DEFAULT_COMBO_GOAL);
+  count.value = String(goal.count ?? goal.min ?? DEFAULT_COMBO_GOAL);
   const sync = () => {
+    // A blob goal uses both the colour and the number (its minimum size).
+    const blob = type.value === 'blob';
     color.hidden = type.value === 'combos';
-    count.hidden = type.value !== 'combos';
+    count.hidden = type.value !== 'combos' && !blob;
+    count.min = blob ? '3' : '1';
+    count.max = blob ? '81' : '40';
+    count.setAttribute('aria-label', blob ? 'Minimum connected orbs' : 'Combo count');
   };
   type.addEventListener('change', sync);
   sync();
@@ -275,6 +281,7 @@ function readPadSettings() {
   const goals = [...ui.padGoals.children].map((item) => {
     const type = item.querySelector('.goal-type').value;
     if (type === 'combos') return { type, count: Number(item.querySelector('.goal-count').value) };
+    if (type === 'blob') return { type, color: item.querySelector('.goal-color').value, min: Number(item.querySelector('.goal-count').value) };
     return { type, color: item.querySelector('.goal-color').value };
   });
   return {

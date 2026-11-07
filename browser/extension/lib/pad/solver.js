@@ -7,11 +7,18 @@
  * dropped with a Zobrist hash. The search stops at the first depth where every goal is met, when
  * `maxMoves` is reached or when `timeLimitMs` runs out (the best path found so far is returned).
  */
-import { ORB_COUNT, ORB_LETTERS, ORB_NAMES, applyPath, checkSize, countOrbs, orbCode } from './board.js';
+import { MAX_SIZE, ORB_COUNT, ORB_LETTERS, ORB_NAMES, applyPath, checkSize, countOrbs, orbCode } from './board.js';
 import { Matcher } from './matcher.js';
-import { SHAPE_LABELS, SHAPE_TYPES, comboHasShape, shapeFits, shapePlacements, shapeSize } from './shapes.js';
+import { SHAPE_LABELS, SHAPE_TYPES, blobPlacements, comboHasShape, shapeFits, shapePlacements, shapeSize } from './shapes.js';
 
-export const GOAL_TYPES = [...SHAPE_TYPES, 'combos'];
+/**
+ * Shapes, `combos` (at least N combos) and `blob` (one combo of a colour with at least `min`
+ * connected orbs; a repeated blob goal needs another combo).
+ */
+export const GOAL_TYPES = [...SHAPE_TYPES, 'combos', 'blob'];
+
+/** Smallest `min` of a blob goal: a combo has at least 3 orbs. */
+export const BLOB_MIN = 3;
 
 export const DEFAULT_OPTIONS = Object.freeze({
   diagonals: true,
@@ -38,11 +45,13 @@ const SEEN_LIMIT = 1_000_000;
 
 /**
  * Validates goals and converts colour letters to orb codes.
- * @param {Array<{type: string, color?: string | number, count?: number}>} goals
- * @returns {Array<{type: string, color?: number, count?: number}>}
+ * @param {Array<{type: string, color?: string | number, count?: number, min?: number}>} goals
+ * @param {{rows: number, cols: number}} [size] Board size; a blob goal needs at most rows x cols
+ *   orbs (without a size: at most the largest board).
+ * @returns {Array<{type: string, color?: number, count?: number, min?: number}>}
  * @throws {Error} On an invalid goal.
  */
-export function normalizeGoals(goals) {
+export function normalizeGoals(goals, size) {
   if (!Array.isArray(goals)) throw new Error('goals must be an array');
   return goals.map((goal, i) => {
     const where = `Goal ${i + 1}`;
@@ -53,13 +62,22 @@ export function normalizeGoals(goals) {
     }
     const color = typeof goal.color === 'number' ? goal.color : orbCode(goal.color ?? '');
     if (!Number.isInteger(color) || color < 0 || color >= ORB_COUNT) throw new Error(`${where}: unknown colour "${goal.color}"`);
+    if (goal.type === 'blob') {
+      if (!Number.isInteger(goal.min) || goal.min < BLOB_MIN) throw new Error(`${where}: blob size must be an integer >= ${BLOB_MIN}`);
+      const max = size ? size.rows * size.cols : MAX_SIZE * MAX_SIZE;
+      if (goal.min > max) {
+        throw new Error(`${where}: blob size must be at most ${max}${size ? ` on a ${size.cols}x${size.rows} board` : ''}`);
+      }
+      return { type: 'blob', color, min: goal.min };
+    }
     return { type: goal.type, color };
   });
 }
 
-/** Human-readable goal, e.g. "Row of Light" or "7+ combos". */
+/** Human-readable goal, e.g. "Row of Light", "7+ combos" or "5+ Fire connected". */
 export function goalLabel(goal) {
   if (goal.type === 'combos') return `${goal.count}+ combos`;
+  if (goal.type === 'blob') return `${goal.min}+ ${ORB_NAMES[goal.color]} connected`;
   return `${SHAPE_LABELS[goal.type]} of ${ORB_NAMES[goal.color]}`;
 }
 
@@ -78,6 +96,12 @@ export function checkFeasibility(board, goals) {
     if (goal.type === 'combos') {
       const max = counts.reduce((sum, n) => sum + Math.floor(n / 3), 0);
       if (goal.count > max) reasons.push(`${goalLabel(goal)}: at most ${max} combos are possible on this board`);
+      continue;
+    }
+    if (goal.type === 'blob') {
+      // A plain sum: a blob shares orbs with another goal of its colour only when it is that
+      // goal's combo, which the goal list does not promise.
+      need[goal.color] += goal.min;
       continue;
     }
     if (!shapeFits(goal.type, rows, cols)) {
@@ -128,7 +152,7 @@ export function solve(board, goals, options = {}) {
   // Monotonic, like the Kotlin port: a wall-clock change must not stretch or cut the time limit.
   const now = options.now ?? (() => performance.now());
   const started = now();
-  const units = normalizeGoals(goals);
+  const units = normalizeGoals(goals, { rows, cols });
   const goalLabels = units.map(goalLabel);
 
   const reasons = checkFeasibility(board, units);
@@ -391,12 +415,14 @@ class Evaluator {
     /** Goals met and combo count of the last {@link score} call. */
     this.met = 0;
     this.combos = 0;
-    // Goals that share type and colour need distinct combos; group them.
+    // Goals that share type and colour (and blob size) need distinct combos; group them.
     this.groups = new Map();
     units.forEach((unit, index) => {
-      const k = unit.type === 'combos' ? 'combos' : `${unit.type}:${unit.color}`;
+      const k = unit.type === 'combos' ? 'combos' : unit.type === 'blob' ? `blob:${unit.color}:${unit.min}` : `${unit.type}:${unit.color}`;
       if (!this.groups.has(k)) {
-        const placements = unit.type === 'combos' ? [] : shapePlacements(unit.type, rows, cols).map((p) => {
+        const targets = unit.type === 'combos' ? []
+          : unit.type === 'blob' ? blobPlacements(unit.min, rows, cols) : shapePlacements(unit.type, rows, cols);
+        const placements = targets.map((p) => {
           const inside = new Uint8Array(n);
           for (const i of p.cells) inside[i] = 1;
           return { cells: Int32Array.from(p.cells), border: Int32Array.from(p.exact ? borderOf(p.cells, rows, cols) : []), inside };
@@ -404,6 +430,7 @@ class Evaluator {
         this.groups.set(k, {
           type: unit.type,
           color: unit.color,
+          min: unit.min,
           indices: [],
           placements,
           values: new Float64Array(placements.length),
@@ -430,7 +457,8 @@ class Evaluator {
     if (group.type === 'combos') return combos.length;
     let n = 0;
     for (const combo of combos) {
-      if (combo.color === group.color && comboHasShape(group.type, combo.cells, this.rows, this.cols)) n++;
+      if (combo.color !== group.color) continue;
+      if (group.type === 'blob' ? combo.cells.length >= group.min : comboHasShape(group.type, combo.cells, this.rows, this.cols)) n++;
     }
     return n;
   }

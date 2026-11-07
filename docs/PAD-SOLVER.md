@@ -62,7 +62,7 @@ fails on them, so the step stops).
 |---|---|
 | Board model, letters, drag path application | `browser/extension/lib/pad/board.js` |
 | Match, combo grouping, gravity, cascades (no skyfall) | `browser/extension/lib/pad/matcher.js` |
-| Row, Column, 3x3, Cross, L, TPA detection + placements | `browser/extension/lib/pad/shapes.js` |
+| Row, Column, 3x3, Cross, L, TPA detection + placements; blob placements | `browser/extension/lib/pad/shapes.js` |
 | Goals, feasibility check, beam search | `browser/extension/lib/pad/solver.js` |
 | Read dawnGlare board from DOM, drag with CDP mouse events | `browser/extension/pad-runner.js` |
 | Popup panel, service-worker API (`qr:padSolve`, ...) | `popup.*`, `background.js` |
@@ -75,7 +75,10 @@ neighbours, Zobrist hash to drop repeated states, top *W* states per depth by sc
 goal + target-colour orbs in the best placements − same-colour orbs touching an exact shape −
 2 × move distance of the nearest loose orbs (Chebyshev with diagonals, Manhattan without) +
 combos; for an unmet combo-count goal also + 2 per touching same-colour pair). A round stops at
-the first depth where all goals are met or at `maxMoves`.
+the first depth where all goals are met or at `maxMoves`. Blob placements (2026-11-07) are filled
+rectangles with `min ≤ h × w ≤ min + 2` and a side ≥ 3, by height, width, row, column (when none
+is that close, the smallest area ≥ `min`, e.g. the whole board for 73 on 9×9); they are not
+exact, so no border penalty. A blob goal is met by any combo of the colour with ≥ `min` orbs.
 
 **Anytime widening** (2026-10-18): rounds with W = 1000, 4000, 16000, 64000 until `timeLimitMs`
 (default 3 s); after the first solution a round only accepts a shorter path (or as long with more
@@ -169,6 +172,7 @@ before relying on it.
 | L shape | Exactly 5 orbs, 3+3 sharing a corner | L-shape awakenings |
 | 4 in a line | Exactly 4 orbs | Two-pronged attack (TPA) |
 | Column | Full vertical line | Some leader skills (verify) |
+| Blob (goal `blob`, `min` N) | At least N connected orbs in one combo, any shape | "N+ connected" leaders; a colour set = one blob `min` 3 per colour; a repeated goal = separate combos |
 
 ## Proposed pipeline (Android)
 

@@ -101,7 +101,11 @@ class PadSolverTest {
 
     private fun parseGoals(array: JSONArray): List<Goal> = List(array.length()) { i ->
         val g = array.getJSONObject(i)
-        if (g.getString("type") == "combos") Goal.Combos(g.getInt("count")) else Goal.Shape(g.getString("type"), Orbs.code(g.getString("color")[0]))
+        when (g.getString("type")) {
+            "combos" -> Goal.Combos(g.getInt("count"))
+            "blob" -> Goal.Blob(Orbs.code(g.getString("color")[0]), g.getInt("min"))
+            else -> Goal.Shape(g.getString("type"), Orbs.code(g.getString("color")[0]))
+        }
     }
 
     private fun JSONArray.toStrings() = List(length()) { getString(it) }

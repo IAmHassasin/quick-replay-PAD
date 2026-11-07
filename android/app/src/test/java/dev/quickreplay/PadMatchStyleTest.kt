@@ -3,6 +3,7 @@ package dev.quickreplay
 import dev.quickreplay.pad.Board
 import dev.quickreplay.pad.Combo
 import dev.quickreplay.pad.Goal
+import dev.quickreplay.pad.GoalResult
 import dev.quickreplay.pad.Matcher
 import dev.quickreplay.pad.Orbs
 import dev.quickreplay.pad.Shapes
@@ -15,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -404,5 +406,117 @@ class PadMatchStyleTest {
     fun withoutDiagonalsAFullRowIsMadeWithOrthogonalMovesOnly() {
         val s = assertShapeGoal(doc, "row", 'L', options.copy(diagonals = false))
         assertContinuous(s.result.path, 6, diagonals = false)
+    }
+
+    // --- blob: one combo of a colour with at least N connected orbs (REHA-11) ------------------------
+
+    // Boards of tools/pad-research/proposed-test-cases.json (REHA-4): 30 orbs, no initial match.
+    private val blobBoard = "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB" // R6 B6 G5 L6 D4 H4
+    private val three = "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG" // R5 B5 G5 L5 D5 H5
+    private val rbg = "RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH" // R8 B8 G8 L2 D2 H2
+    private val twice = "RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH" // R7 B5 G5 L5 D3 H5
+
+    private fun blob(color: Char, min: Int) = Goal.Blob(Orbs.code(color), min)
+
+    /** Combos of one colour with at least [min] orbs, re-checked from the raw simulated cells. */
+    private fun blobs(combos: List<Combo>, color: Char, min: Int) = combos.filter { it.color == Orbs.code(color) && it.cells.size >= min }
+
+    @Test
+    fun blobOfFivePlusFireOnTheBlobBoardInOneMove() {
+        val s = assertSolved(blobBoard, listOf(blob('R', 5)))
+        assertEquals(listOf(GoalResult("5+ Fire connected", true)), s.result.goals)
+        assertEquals("the R at r1c2 moved up completes R x5 in row 0", 1, s.result.moves)
+        assertEquals(1, blobs(s.combos, 'R', 5).size)
+    }
+
+    @Test
+    fun blobFixedColourSetIsOneBlobGoalPerColour() {
+        val s = assertSolved(three, listOf(blob('R', 3), blob('B', 3)))
+        assertEquals(listOf("3+ Fire connected", "3+ Water connected"), s.result.goals.map { it.label })
+        assertTrue(blobs(s.combos, 'R', 3).isNotEmpty())
+        assertTrue(blobs(s.combos, 'B', 3).isNotEmpty())
+    }
+
+    @Test
+    fun blobRepeatedGoalNeedsSeparateCombos() {
+        val s = assertSolved(twice, listOf(blob('R', 3), blob('R', 3)))
+        assertTrue("two separate Fire combos", blobs(s.combos, 'R', 3).size >= 2)
+    }
+
+    @Test
+    fun blobImpossibleFromOrbCountsWithoutSearching() {
+        assertImpossible(blobBoard, listOf(blob('H', 5)), listOf("Heart: the goals need 5 orbs, the board has 4"))
+        assertImpossible(
+            rbg, listOf(blob('L', 3), blob('D', 3)),
+            listOf("Light: the goals need 3 orbs, the board has 2", "Dark: the goals need 3 orbs, the board has 2"),
+        )
+        assertImpossible(twice, listOf(blob('D', 3), blob('D', 3)), listOf("Dark: the goals need 6 orbs, the board has 3"))
+        // Blob orbs add up with other goals of the colour.
+        assertImpossible(blobBoard, listOf(shape("row", 'R'), blob('R', 3)), listOf("Fire: the goals need 9 orbs, the board has 6"))
+    }
+
+    @Test
+    fun blobUnmetWithOneMoveWhenTwoSeparateCombosAreNeeded() {
+        val board = Board.parse(twice)
+        val result = Solver.solve(board, listOf(blob('R', 3), blob('R', 3)), options.copy(maxMoves = 1))
+        // One move makes one Fire combo; that combo cannot count for the second goal too.
+        assertEquals("partial", result.status)
+        assertEquals(listOf(true, false), result.goals.map { it.met })
+        assertEquals(1, result.moves)
+        assertContinuous(result.path, board.cols, diagonals = true)
+        assertEquals(1, blobs(replay(board, result), 'R', 3).size)
+        // A single goal of a size one move cannot reach stays unmet.
+        assertUnmet(twice, listOf(blob('R', 6)))
+    }
+
+    @Test
+    fun blobMinMustBeFromThreeToTheBoardSize() {
+        for (min in listOf(2, 0, -3)) assertThrows("min $min", IllegalArgumentException::class.java) { blob('R', min) }
+        // Without a board the limit is the largest board (9x9).
+        assertThrows(IllegalArgumentException::class.java) { blob('R', 82) }
+        assertEquals(81, blob('R', 81).min)
+        assertThrows(IllegalArgumentException::class.java) { Goal.Blob(Orbs.COUNT, 5) }
+        // With a board: at most rows x cols orbs.
+        val error = assertThrows(IllegalArgumentException::class.java) { Solver.solve(Board.parse(blobBoard), listOf(blob('R', 31)), options) }
+        assertEquals("Blob size must be at most 30 on a 6x5 board", error.message)
+        assertEquals("7+ Wood connected", blob('G', 7).label)
+    }
+
+    @Test
+    fun blobPlacementsAreRectanglesOfMinToMinPlusTwoWithASideOfThree() {
+        val placements = Shapes.blobPlacements(5, 5, 6)
+        val sizes = ArrayList<String>()
+        for (p in placements) {
+            assertFalse(p.exact)
+            val h = p.cells.maxOf { it / 6 } - p.cells.minOf { it / 6 } + 1
+            val w = p.cells.maxOf { it % 6 } - p.cells.minOf { it % 6 } + 1
+            assertEquals("a filled rectangle", h * w, p.cells.size)
+            assertTrue("${h}x$w", h * w in 5..7 && maxOf(h, w) >= 3)
+            assertArrayEquals(p.cells.sortedArray(), p.cells)
+            if (sizes.lastOrNull() != "${h}x$w") sizes += "${h}x$w"
+        }
+        // 1x5, 1x6, 2x3, 3x2, 5x1 (no 1x7, 7x1 or 6x1 on 6x5).
+        assertEquals(listOf("1x5", "1x6", "2x3", "3x2", "5x1"), sizes)
+        assertEquals(5 * 2 + 5 * 1 + 4 * 4 + 3 * 5 + 1 * 6, placements.size)
+        // Row-major order inside one size.
+        assertArrayEquals(intArrayOf(0, 1, 2, 3, 4), placements[0].cells)
+        assertArrayEquals(intArrayOf(1, 2, 3, 4, 5), placements[1].cells)
+        assertArrayEquals(intArrayOf(6, 7, 8, 9, 10), placements[2].cells)
+        assertArrayEquals(intArrayOf(0, 1, 2, 6, 7, 8), Shapes.rectanglePlacements(2, 3, 5, 6)[0])
+        assertEquals(4 * 4, Shapes.rectanglePlacements(2, 3, 5, 6).size)
+        assertEquals(0, Shapes.rectanglePlacements(6, 1, 5, 6).size)
+        // The whole board is the only placement for min = rows x cols.
+        assertEquals(listOf(30), Shapes.blobPlacements(30, 5, 6).map { it.cells.size })
+    }
+
+    @Test
+    fun blobPlacementsExistForEveryMinOnEveryBoardSize() {
+        for (rows in 3..9) for (cols in 3..9) for (min in 3..rows * cols) {
+            val placements = Shapes.blobPlacements(min, rows, cols)
+            assertTrue("min $min on ${cols}x$rows", placements.isNotEmpty())
+            for (p in placements) assertTrue(p.cells.size >= min)
+        }
+        // 73 on 9x9: no rectangle of 73 to 75 orbs, so the smallest area >= 73 (the whole board).
+        assertEquals(listOf(81), Shapes.blobPlacements(73, 9, 9).map { it.cells.size })
     }
 }

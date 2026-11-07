@@ -170,6 +170,29 @@ class PadSolveFlowTest {
         assertFormatError(json.replace(Regex("\"pad\": \\{[^}]*\\[[^]]*][^}]*\\}"), "\"pad\": 3"), "pad must be an object")
     }
 
+    @Test
+    fun scriptJsonKeepsBlobGoals() {
+        val setup = PadSetup(goals = listOf(Goal.Blob(Orbs.code('R'), 5), Goal.Blob(Orbs.code('R'), 5), Goal.Blob(Orbs.code('H'), 30)))
+        val script = Script("blob", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"min\": 5"))
+        assertTrue(json, json.contains("\"type\": \"blob\""))
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("5+ Fire connected + 5+ Fire connected + 30+ Heart connected · 150 ms/move", setup.summary())
+
+        val min = "\"min\": 30"
+        assertFormatError(json.replace(min, "\"min\": 2"), "pad: pad.goals[2].min must be an integer >= 3")
+        assertFormatError(json.replace(min, "\"min\": 3.5"), "pad: pad.goals[2].min must be an integer >= 3")
+        assertFormatError(json.replace(min, "\"min\": \"30\""), "pad: pad.goals[2].min must be an integer >= 3")
+        assertFormatError(json.replace(min, "\"size\": 30"), "pad: pad.goals[2].min must be an integer >= 3")
+        // At most rows x cols orbs: 30 on the default 6x5 board.
+        assertFormatError(json.replace(min, "\"min\": 31"), "pad: Blob size must be at most 30 on a 6x5 board")
+        assertFormatError(json.replace("\"color\": \"H\"", "\"color\": \"J\""), "pad: pad.goals[2].color must be one of R, B, G, L, D, H")
+        // A 7x6 board allows 42.
+        val big = PadSetup(goals = listOf(Goal.Blob(Orbs.code('H'), 42)), rows = 6, cols = 7)
+        assertEquals(big, PadSetup.fromJson(big.toJson()))
+    }
+
     private fun assertFormatError(json: String, message: String) {
         try {
             ScriptJson.parse(json)

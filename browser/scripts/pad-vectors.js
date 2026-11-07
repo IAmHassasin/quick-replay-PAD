@@ -18,6 +18,11 @@ const SMALL = 'RBGL\nLDHR\nBRGD\nHLBG';
 // Other board sizes used by the match-style tests (5 columns x 4 rows, 7 columns x 6 rows).
 const WIDE = 'LRBLG\nGLHRB\nRBLGL\nHGRBD';
 const BIG = 'RGBLDHR\nBRGLHDB\nGBRLDHG\nLGBRHDL\nDLGBRHD\nHDLGBRH';
+// Blob boards of tools/pad-research/proposed-test-cases.json (REHA-4); FULL is 9x9 with R73.
+const BLOB = 'RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB';
+const THREE = 'RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG';
+const TWICE = 'RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH';
+const FULL = Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
 const twoRounds = { timeLimitMs: 600000, maxBeamWidth: 4000 };
@@ -50,6 +55,17 @@ const cases = [
   ['shot cross H no diagonals', SHOT, [{ type: 'cross', color: 'H' }], { ...single, diagonals: false }],
   ['doc row L one move unmet', DOC, [{ type: 'row', color: 'L' }], { ...single, maxMoves: 1 }],
   ['doc tpa L', DOC, [{ type: 'tpa', color: 'L' }], single],
+  // Blob goals (REHA-11): N+ connected orbs, a colour set, two combos of one colour, impossible,
+  // unmet, mixed with a shape, and a size where no rectangle is within min + 2 (73 on 9x9).
+  ['blob 5+ R', BLOB, [{ type: 'blob', color: 'R', min: 5 }], single],
+  ['blob 5+ H impossible', BLOB, [{ type: 'blob', color: 'H', min: 5 }], single],
+  ['three blob R + blob B', THREE, [{ type: 'blob', color: 'R', min: 3 }, { type: 'blob', color: 'B', min: 3 }], single],
+  ['twice two blobs R', TWICE, [{ type: 'blob', color: 'R', min: 3 }, { type: 'blob', color: 'R', min: 3 }], single],
+  ['twice two blobs D impossible', TWICE, [{ type: 'blob', color: 'D', min: 3 }, { type: 'blob', color: 'D', min: 3 }], single],
+  ['twice two blobs R one move unmet', TWICE, [{ type: 'blob', color: 'R', min: 3 }, { type: 'blob', color: 'R', min: 3 }], { ...single, maxMoves: 1 }],
+  ['doc blob 6+ B + row L', DOC, [{ type: 'blob', color: 'B', min: 6 }, { type: 'row', color: 'L' }], single],
+  ['doc blob 4+ R no diagonals', DOC, [{ type: 'blob', color: 'R', min: 4 }], { ...single, diagonals: false }],
+  ['full 9x9 blob 73+ R', FULL, [{ type: 'blob', color: 'R', min: 73 }], { ...single, maxMoves: 8 }],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {

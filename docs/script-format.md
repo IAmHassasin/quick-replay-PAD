@@ -55,7 +55,7 @@ setup when REC starts; replaying always uses the script's own setup. When a reco
 
 | `pad` field | Type | Default | Notes |
 |---|---|---|---|
-| `goals` | array, ≥ 1 | — | `{ "type": "row" \| "column" \| "square" \| "cross" \| "lshape" \| "tpa", "color": "R" \| "B" \| "G" \| "L" \| "D" \| "H" }` or `{ "type": "combos", "count": n }`; all must be met |
+| `goals` | array, ≥ 1 | — | `{ "type": "row" \| "column" \| "square" \| "cross" \| "lshape" \| "tpa", "color": "R" \| "B" \| "G" \| "L" \| "D" \| "H" }` , `{ "type": "combos", "count": n }` or `{ "type": "blob", "color": …, "min": n }` (one combo of the colour with at least `n` connected orbs, 3 ≤ `n` ≤ rows × cols; a repeated blob goal needs another combo: two `blob R 3` goals = two Fire combos, a colour set = one `blob` with `min` 3 per colour); all must be met |
 | `rows`, `cols` | integer 3–9 | 5, 6 | Board size |
 | `diagonals` | boolean | true | Allow diagonal moves |
 | `maxMoves` | integer 1–50 | 40 | |

@@ -182,6 +182,32 @@ test('android scripts may have solve steps with a pad setup (PAD fork)', () => {
   assert.deepEqual(validateScript({ ...script, pad: { ...pad, goals: [] } }), ['pad.goals must be a non-empty array']);
   assert.match(validateScript({ ...script, pad: { ...pad, goals: [{ type: 'row', color: 'J' }] } })[0], /pad\.goals\[0\]/);
   assert.deepEqual(validateScript({ ...script, pad: { ...pad, msPerMove: 5 } }), ['pad.msPerMove must be an integer from 10 to 1000']);
+  // Blob goals: a colour and a size from 3 to rows x cols (6x5 when the size is absent).
+  const withGoal = (goal, size = {}) => validateScript({ ...script, pad: { ...pad, ...size, goals: [goal] } });
+  assert.deepEqual(withGoal({ type: 'blob', color: 'R', min: 5 }), []);
+  assert.deepEqual(withGoal({ type: 'blob', color: 'H', min: 30 }), []);
+  assert.deepEqual(withGoal({ type: 'blob', color: 'H', min: 42 }, { rows: 6, cols: 7 }), []);
+  for (const goal of [
+    { type: 'blob', color: 'R', min: 2 },
+    { type: 'blob', color: 'R', min: 31 },
+    { type: 'blob', color: 'R', min: 5.5 },
+    { type: 'blob', color: 'R' },
+    { type: 'blob', color: 'J', min: 5 },
+  ]) {
+    assert.match(withGoal(goal)[0] ?? '', /pad\.goals\[0\]/, JSON.stringify(goal));
+  }
   // Browser scripts cannot solve.
   assert.match(validateScript({ ...browserScript(), steps: [{ type: 'solve' }] })[0], /not allowed for this platform/);
+});
+
+test('the script schema has the blob goal: a colour and a size >= 3', () => {
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const branches = schema.$defs.goal.oneOf;
+  const blob = branches.find((b) => b.properties.type.const === 'blob');
+  assert.ok(blob, 'a blob branch in $defs.goal.oneOf');
+  assert.deepEqual(blob.required, ['type', 'color', 'min']);
+  assert.deepEqual(blob.properties.color.enum, ['R', 'B', 'G', 'L', 'D', 'H']);
+  assert.deepEqual(blob.properties.min, { type: 'integer', minimum: 3, maximum: 81 });
+  // The shape branch must not accept "blob".
+  assert.ok(!branches.some((b) => b !== blob && (b.properties.type.enum ?? [b.properties.type.const]).includes('blob')));
 });

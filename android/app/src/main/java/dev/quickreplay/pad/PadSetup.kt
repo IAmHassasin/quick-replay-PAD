@@ -29,7 +29,15 @@ data class PadSetup(
         require(maxMoves in 1..MAX_MOVES) { "Max moves must be from 1 to $MAX_MOVES" }
         require(timeLimitMs in MIN_TIME_LIMIT_MS..MAX_TIME_LIMIT_MS) { "Time limit must be from $MIN_TIME_LIMIT_MS to $MAX_TIME_LIMIT_MS ms" }
         require(msPerMove in MIN_MS_PER_MOVE..MAX_MS_PER_MOVE) { "Drag time per move must be from $MIN_MS_PER_MOVE to $MAX_MS_PER_MOVE ms" }
-        for (goal in goals) if (goal is Goal.Shape) require(goal.color < Orbs.ATTRIBUTES) { "Goal colour must be R, B, G, L, D or H" }
+        for (goal in goals) {
+            val color = when (goal) {
+                is Goal.Shape -> goal.color
+                is Goal.Blob -> goal.color
+                is Goal.Combos -> continue
+            }
+            require(color < Orbs.ATTRIBUTES) { "Goal colour must be R, B, G, L, D or H" }
+            if (goal is Goal.Blob) goal.checkSize(rows, cols)
+        }
     }
 
     /** Beam width is capped below the solver default: the widest rounds need more memory than a phone app gets. */
@@ -105,6 +113,7 @@ data class PadSetup(
         fun goalJson(goal: Goal): JSONObject = when (goal) {
             is Goal.Combos -> JSONObject().put("type", "combos").put("count", goal.count)
             is Goal.Shape -> JSONObject().put("type", goal.type).put("color", Orbs.LETTERS[goal.color].toString())
+            is Goal.Blob -> JSONObject().put("type", "blob").put("color", Orbs.LETTERS[goal.color].toString()).put("min", goal.min)
         }
 
         private fun parseGoal(json: JSONObject, at: String): Goal {
@@ -116,11 +125,20 @@ data class PadSetup(
                 }
                 return Goal.Combos(count.toInt())
             }
-            require(type in Shapes.TYPES) { "$at.type \"$type\" is not a goal type" }
+            require(type in Shapes.TYPES || type == "blob") { "$at.type \"$type\" is not a goal type" }
             // Upper-case only, like the browser validator and the schema.
             val letter = json.opt("color") as? String
             val color = if (letter != null && letter.length == 1 && letter[0].isUpperCase()) Orbs.code(letter[0]) else -1
             require(color in 0 until Orbs.ATTRIBUTES) { "$at.color must be one of R, B, G, L, D, H" }
+            if (type == "blob") {
+                // The upper bound (rows x cols) is checked by the PadSetup constructor.
+                val min = json.opt("min") as? Number
+                require(
+                    min != null && min.toDouble() == Math.floor(min.toDouble()) &&
+                        min.toDouble() in Goal.Blob.MIN.toDouble()..Int.MAX_VALUE.toDouble(),
+                ) { "$at.min must be an integer >= ${Goal.Blob.MIN}" }
+                return Goal.Blob(color, min.toInt())
+            }
             return Goal.Shape(type, color)
         }
     }

@@ -130,11 +130,17 @@ function validatePad(pad, add) {
   if (!Array.isArray(pad.goals) || pad.goals.length === 0) {
     add('pad.goals must be a non-empty array');
   } else {
+    // A blob holds at most every orb of the board (6x5 when the size is absent or invalid).
+    const cells = (Number.isInteger(pad.rows) ? pad.rows : 5) * (Number.isInteger(pad.cols) ? pad.cols : 6);
     pad.goals.forEach((g, i) => {
-      const ok = isObject(g) && (g.type === 'combos'
-        ? Number.isInteger(g.count) && g.count >= 1
-        : PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color));
-      if (!ok) add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H } or { type: "combos", count: integer >= 1 }`);
+      let ok = false;
+      if (isObject(g) && g.type === 'combos') ok = Number.isInteger(g.count) && g.count >= 1;
+      else if (isObject(g) && g.type === 'blob') ok = PAD_COLORS.includes(g.color) && Number.isInteger(g.min) && g.min >= 3 && g.min <= cells;
+      else if (isObject(g)) ok = PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color);
+      if (!ok) {
+        add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H }, { type: "combos", count: integer >= 1 }`
+          + ` or { type: "blob", color: R|B|G|L|D|H, min: integer from 3 to rows x cols }`);
+      }
     });
   }
   const ranges = [['rows', 3, 9], ['cols', 3, 9], ['maxMoves', 1, 50], ['timeLimitMs', 100, 10000], ['msPerMove', 10, 1000]];

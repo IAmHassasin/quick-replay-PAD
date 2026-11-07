@@ -164,3 +164,49 @@ export function shapePlacements(type, rows, cols) {
   }
   return out;
 }
+
+/**
+ * All `h` x `w` rectangles that fit on the board, row-major (top row first, then left column
+ * first). Each rectangle is its sorted cell indices.
+ * @returns {number[][]}
+ */
+export function rectanglePlacements(h, w, rows, cols) {
+  const out = [];
+  for (let r = 0; r + h <= rows; r++) {
+    for (let c = 0; c + w <= cols; c++) {
+      const cells = [];
+      for (let dr = 0; dr < h; dr++) for (let dc = 0; dc < w; dc++) cells.push((r + dr) * cols + c + dc);
+      out.push(cells);
+    }
+  }
+  return out;
+}
+
+/** Blob placements may be up to this many orbs larger than the goal's `min`. */
+const BLOB_SLACK = 2;
+
+/**
+ * Target areas for a `blob` goal (one combo of at least `min` connected orbs): every filled
+ * rectangle with `min <= h * w <= min + 2` and a side of at least 3 (a combo needs 3 in a line),
+ * enumerated by height, then width, then row, then column. When no rectangle is that close to
+ * `min` (e.g. 73 on 9x9), the rectangles of the smallest area >= `min` are used instead. Not
+ * `exact`: a bigger combo still meets the goal. The Kotlin port must keep this order (it decides
+ * ties in the solver's scoring).
+ * @returns {Array<{cells: number[], exact: boolean}>}
+ */
+export function blobPlacements(min, rows, cols) {
+  const sizes = [];
+  for (let h = 1; h <= rows; h++) {
+    for (let w = 1; w <= cols; w++) {
+      if (h * w >= min && Math.max(h, w) >= 3) sizes.push([h, w]);
+    }
+  }
+  let limit = min + BLOB_SLACK;
+  if (!sizes.some(([h, w]) => h * w <= limit)) limit = Math.min(...sizes.map(([h, w]) => h * w));
+  const out = [];
+  for (const [h, w] of sizes) {
+    if (h * w > limit) continue;
+    for (const cells of rectanglePlacements(h, w, rows, cols)) out.push({ cells, exact: false });
+  }
+  return out;
+}

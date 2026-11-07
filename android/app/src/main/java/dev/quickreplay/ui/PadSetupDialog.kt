@@ -19,8 +19,8 @@ import dev.quickreplay.pad.Shapes
  * when the goals cannot be met. Invalid input keeps the dialog open with a message.
  */
 internal object PadSetupDialog {
-    private val TYPES = Shapes.TYPES + "combos"
-    private val TYPE_LABELS = Shapes.TYPES.map { Shapes.LABELS.getValue(it) } + "Combos (at least)"
+    private val TYPES = Shapes.TYPES + "combos" + "blob"
+    private val TYPE_LABELS = Shapes.TYPES.map { Shapes.LABELS.getValue(it) } + "Combos (at least)" + "Connected orbs (at least)"
     private val COLOR_LABELS = Orbs.NAMES.take(Orbs.ATTRIBUTES)
 
     fun show(activity: Activity, title: String, initial: PadSetup, onSave: (PadSetup) -> Unit) {
@@ -102,13 +102,25 @@ internal object PadSetupDialog {
         }
         val color = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, COLOR_LABELS)
-            setSelection(((goal as? Goal.Shape)?.color ?: Orbs.code('L')).coerceIn(0, Orbs.ATTRIBUTES - 1))
+            val initialColor = when (goal) {
+                is Goal.Shape -> goal.color
+                is Goal.Blob -> goal.color
+                is Goal.Combos -> Orbs.code('L')
+            }
+            setSelection(initialColor.coerceIn(0, Orbs.ATTRIBUTES - 1))
         }
-        val count = Ui.input(activity, ((goal as? Goal.Combos)?.count ?: 7).toString(), number = true).apply { minEms = 2 }
+        // The number field is the combo count, or the minimum size of a blob goal.
+        val initialNumber = when (goal) {
+            is Goal.Combos -> goal.count
+            is Goal.Blob -> goal.min
+            is Goal.Shape -> 7
+        }
+        val count = Ui.input(activity, initialNumber.toString(), number = true).apply { minEms = 2 }
         fun sync() {
-            val combos = TYPES[type.selectedItemPosition] == "combos"
-            color.visibility = if (combos) android.view.View.GONE else android.view.View.VISIBLE
-            count.visibility = if (combos) android.view.View.VISIBLE else android.view.View.GONE
+            val kind = TYPES[type.selectedItemPosition]
+            color.visibility = if (kind == "combos") android.view.View.GONE else android.view.View.VISIBLE
+            count.visibility = if (kind == "combos" || kind == "blob") android.view.View.VISIBLE else android.view.View.GONE
+            count.contentDescription = if (kind == "blob") "Minimum connected orbs" else "Combo count"
         }
         type.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) = sync()
@@ -135,10 +147,13 @@ internal object PadSetupDialog {
     private fun readGoals(container: LinearLayout): List<Goal> = (0 until container.childCount).map { i ->
         val row = container.getChildAt(i).tag as GoalRow
         val kind = TYPES[row.type.selectedItemPosition]
-        if (kind == "combos") {
-            Goal.Combos(row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Combo count must be a number"))
-        } else {
-            Goal.Shape(kind, row.color.selectedItemPosition)
+        when (kind) {
+            "combos" -> Goal.Combos(row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Combo count must be a number"))
+            "blob" -> Goal.Blob(
+                row.color.selectedItemPosition,
+                row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Connected orbs must be a number"),
+            )
+            else -> Goal.Shape(kind, row.color.selectedItemPosition)
         }
     }
 }
