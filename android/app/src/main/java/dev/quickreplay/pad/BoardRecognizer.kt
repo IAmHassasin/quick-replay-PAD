@@ -30,7 +30,8 @@ sealed interface Recognition {
  * 2. Orbs: orb skins change the inside of an orb (e.g. a watermelon) but keep the attribute colour
  *    on the outer ring, so only a ring around each centre is sampled. Each saturated, bright pixel
  *    votes for the hue range of an attribute; a cell is known when one attribute clearly wins.
- *    Hearts are pink rounded squares, which the same ring catches.
+ *    Hearts are pink rounded squares, which the same ring catches. Special orbs (Poison, Mortal
+ *    poison, Bomb, Jammer, Super blind, Spinner) are recognised first, see [special].
  */
 object BoardRecognizer {
     private const val TARGET_WIDTH = 270
@@ -40,6 +41,19 @@ object BoardRecognizer {
     private const val MIN_COLOURED_SHARE = 0.15f
     private const val RING_INNER = 0.33f
     private const val RING_OUTER = 0.44f
+
+    // Special orbs (see [special]); shares of the sampled pixels, measured values in its comment.
+    private const val INNER_RADIUS = 0.2f
+    private const val CORNER_OFFSET = 0.47f
+    private const val CORNER_SIDE = 0.12f
+    private const val SPINNER_CORNER_GOLD = 0.25f
+    private const val SUPER_BLIND_BLACK = 0.5f
+    private const val SKULL_WHITE = 0.15f
+    private const val SKULL_BLACK = 0.1f
+    private const val MORTAL_RING_BLACK = 0.33f
+    private const val JAMMER_RING_DARK = 0.6f
+    private const val BOMB_DARK = 0.6f
+    private const val WATER = 1
 
     /** Chroma (0..255) of the strongly coloured pixels that outline an orb. */
     private const val EDGE_CHROMA = 90
@@ -249,34 +263,120 @@ object BoardRecognizer {
 
     // ---- 2. Orbs --------------------------------------------------------------------------------
 
-    /** Returns (orb code or -1, share of the winning attribute among coloured ring pixels). */
-    internal fun classify(pixels: IntArray, width: Int, height: Int, cx: Float, cy: Float, cell: Float): Pair<Int, Float> {
-        val votes = FloatArray(Orbs.ATTRIBUTES)
+    /** Pixel counts of a disc band around an orb centre. */
+    private class Band {
         var sampled = 0
         var coloured = 0
+        var white = 0
+        var black = 0
+        var dark = 0
+        val votes = FloatArray(Orbs.ATTRIBUTES)
+
+        fun share(count: Int): Float = if (sampled == 0) 0f else count / sampled.toFloat()
+
+        /** Attribute with the most votes. */
+        fun best(): Int {
+            var best = 0
+            for (a in votes.indices) if (votes[a] > votes[best]) best = a
+            return best
+        }
+    }
+
+    /** Samples circles from [from] to [to] (fractions of the cell size) around (cx, cy). */
+    private fun band(pixels: IntArray, width: Int, height: Int, cx: Float, cy: Float, cell: Float, from: Float, to: Float): Band {
+        val band = Band()
         val steps = 72
-        var radius = RING_INNER * cell
+        var radius = from * cell
         val radiusStep = max(1f, cell / 60)
-        while (radius <= RING_OUTER * cell) {
+        while (radius <= to * cell) {
             for (k in 0 until steps) {
                 val angle = 2 * Math.PI * k / steps
                 val x = (cx + radius * cos(angle)).roundToInt()
                 val y = (cy + radius * sin(angle)).roundToInt()
                 if (x < 0 || y < 0 || x >= width || y >= height) continue
-                sampled++
-                val attribute = attributeOf(pixels[y * width + x])
+                band.sampled++
+                val argb = pixels[y * width + x]
+                val attribute = attributeOf(argb)
                 if (attribute >= 0) {
-                    coloured++
-                    votes[attribute] += 1f
+                    band.coloured++
+                    band.votes[attribute] += 1f
                 }
+                val mx = max((argb shr 16) and 0xff, max((argb shr 8) and 0xff, argb and 0xff))
+                val v = mx / 255f
+                val s = if (mx == 0) 0f else chroma(argb) / mx.toFloat()
+                if (s < 0.2f && v > 0.75f) band.white++
+                if (v < 0.2f) band.black++
+                if (v < 0.35f) band.dark++
             }
             radius += radiusStep
         }
-        if (sampled == 0 || coloured < sampled * MIN_COLOURED_SHARE) return -1 to 0f
-        var best = 0
-        for (a in votes.indices) if (votes[a] > votes[best]) best = a
-        val share = votes[best] / coloured
+        return band
+    }
+
+    /**
+     * Share of gold pixels (pale orange-yellow, bright) in small squares at the four cell corners,
+     * outside the orb: the brackets of an in-game Spinner, or dawnGlare's brown-gold spinner tile.
+     * Orbs, the board background and orb skins seen so far have none there.
+     */
+    private fun cornerGoldShare(pixels: IntArray, width: Int, height: Int, cx: Float, cy: Float, cell: Float): Float {
+        val side = (cell * CORNER_SIDE).toInt()
+        var sampled = 0
+        var gold = 0
+        for (sx in intArrayOf(-1, 1)) for (sy in intArrayOf(-1, 1)) {
+            for (dy in 0 until side) for (dx in 0 until side) {
+                val x = (cx + sx * (cell * CORNER_OFFSET - dx)).roundToInt()
+                val y = (cy + sy * (cell * CORNER_OFFSET - dy)).roundToInt()
+                if (x < 0 || y < 0 || x >= width || y >= height) continue
+                sampled++
+                val argb = pixels[y * width + x]
+                val r = (argb shr 16) and 0xff
+                val g = (argb shr 8) and 0xff
+                val b = argb and 0xff
+                val mx = max(r, max(g, b))
+                val mn = min(r, min(g, b))
+                val s = if (mx == 0) 0f else (mx - mn) / mx.toFloat()
+                if (mx > 0.6f * 255 && s in 0.15f..0.7f && hue(r, g, b, mx, mn) in 15f..55f) gold++
+            }
+        }
+        return if (sampled == 0) 0f else gold / sampled.toFloat()
+    }
+
+    /**
+     * Returns (orb code or -1, confidence). Special orbs first (their outlines would otherwise be
+     * read as a colour: a Poison skull's purple rim passes for Heart or Dark), then the attribute
+     * with most votes among coloured ring pixels; the confidence is that attribute's share.
+     */
+    internal fun classify(pixels: IntArray, width: Int, height: Int, cx: Float, cy: Float, cell: Float): Pair<Int, Float> {
+        val inner = band(pixels, width, height, cx, cy, cell, 0f, INNER_RADIUS)
+        val ring = band(pixels, width, height, cx, cy, cell, RING_INNER, RING_OUTER)
+        special(inner, ring, cornerGoldShare(pixels, width, height, cx, cy, cell))?.let { return it to 1f }
+        if (ring.sampled == 0 || ring.coloured < ring.sampled * MIN_COLOURED_SHARE) return -1 to 0f
+        val best = ring.best()
+        val share = ring.votes[best] / ring.coloured
         return (if (share >= MIN_CONFIDENCE) best else -1) to share
+    }
+
+    /**
+     * Special orbs, from the centre disc ([inner]), the colour ring and the cell corners. Thresholds
+     * measured on dawnGlare and on the owner's in-game screenshots (BoardRecognizerTest); normal
+     * orbs, including the watermelon skin, stay far from them (centre black 0 %, centre dark ≤ 30 %,
+     * ring dark ≤ 17 %, corner gold ≤ 10 %).
+     * - Spinner: gold in the cell corners (≥ 36 % on these images) → unknown.
+     * - Super blind: black orb with a small number, centre ≥ 59 % black → unknown (Mortal poison
+     *   centres reach 35 % black, hence a threshold of 50 %).
+     * - Poison / Mortal poison: white skull, centre ≥ 26 % white and ≥ 15 % black; Mortal poison has a
+     *   black spiky frame on the ring (ring ≥ 39 % black, Poison ≤ 28 %).
+     * - Bomb: black ball, centre mostly dark but not black (≥ 84 % dark, ≤ 12 % black).
+     * - Jammer: navy blob, dark ring (≥ 83 %) around a blue centre.
+     */
+    private fun special(inner: Band, ring: Band, cornerGold: Float): Int? = when {
+        cornerGold >= SPINNER_CORNER_GOLD -> Orbs.UNKNOWN
+        inner.share(inner.black) >= SUPER_BLIND_BLACK -> Orbs.UNKNOWN
+        inner.share(inner.white) >= SKULL_WHITE && inner.share(inner.black) >= SKULL_BLACK ->
+            if (ring.share(ring.black) >= MORTAL_RING_BLACK) Orbs.MORTAL_POISON else Orbs.POISON
+        inner.share(inner.dark) >= BOMB_DARK -> Orbs.BOMB
+        ring.share(ring.dark) >= JAMMER_RING_DARK && inner.coloured >= inner.sampled / 2 && inner.best() == WATER -> Orbs.JAMMER
+        else -> null
     }
 
     /** Attribute code (R B G L D H) of a saturated, bright pixel, or -1. */

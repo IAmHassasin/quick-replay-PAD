@@ -14,6 +14,8 @@ import java.io.File
  *   board set with ?patt=LGHLBBLRDDGLBRRLRRHBRGBLLBBRRD.
  * - ingame-watermelon.png: the owner's in-game screenshot (watermelon orb skin, enhanced orbs),
  *   cropped to the HP bar and the board.
+ * - ingame-superblind.png, ingame-spinner.png: the owner's in-game screenshots from REHA-15,
+ *   cropped to the board.
  */
 class BoardRecognizerTest {
     private class Image(val pixels: IntArray, val width: Int, val height: Int)
@@ -69,8 +71,7 @@ class BoardRecognizerTest {
     fun readsRandomDawnGlareBoards() {
         for (n in 1..3) {
             val name = "dawnglare-random-$n"
-            val truth = listOf("src/test/resources/pad/$name.txt", "app/src/test/resources/pad/$name.txt")
-                .map(::File).first(File::isFile).readText().replace("\r\n", "\n").trim() // CRLF after a Windows checkout
+            val truth = truth("$name.txt") // CRLF after a Windows checkout is normalised
             val found = recognize("$name.png")
             assertEquals(name, truth, found.board.format())
             // Exact tile geometry from the page DOM: first tile at (90, 45), 90 px tiles.
@@ -79,6 +80,36 @@ class BoardRecognizerTest {
             assertEquals(name, 45f, found.grid.top, 1.5f)
         }
     }
+
+    /**
+     * dawnglare-hazards-N.png: desktop dawnGlare at 720x1600 with Poison, Mortal poison, Bomb,
+     * Spinner (`?`) and Jammer orbs, taken with tools/pad-fixtures/capture-dawnglare.cjs; truth from
+     * the page DOM in .txt. hazards-4 is the owner's sample board (?s=unNHjo0).
+     */
+    @Test
+    fun readsHazardOrbsOnDawnGlare() {
+        for (n in 1..4) {
+            val name = "dawnglare-hazards-$n"
+            val found = recognize("$name.png")
+            assertEquals(name, truth("$name.txt"), found.board.format())
+            assertEquals(name, 90f, found.grid.cell, 0.7f)
+        }
+    }
+
+    /**
+     * The owner's in-game screenshots (cropped to the board, enhanced orbs): Super blind orbs are
+     * black with a number, Spinners keep their current colour but have gold brackets in the cell
+     * corners. Both are read as `?`.
+     */
+    @Test
+    fun readsSuperBlindAndSpinnersInGame() {
+        assertEquals("RBLLRH\nRLGHGB\nHG?GGG\nLGBHRH\n?DBDRD", recognize("ingame-superblind.png").board.format())
+        assertEquals("LGRRB?\nL?RLH?\nGH?RGB\n?D?BDD\nDGR?GD", recognize("ingame-spinner.png").board.format())
+    }
+
+    private fun truth(name: String): String =
+        listOf("src/test/resources/pad/$name", "app/src/test/resources/pad/$name")
+            .map(::File).first(File::isFile).readText().replace("\r\n", "\n").trim()
 
     @Test
     fun failsWithoutABoard() {
