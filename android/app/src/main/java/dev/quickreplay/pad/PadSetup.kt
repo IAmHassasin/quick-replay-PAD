@@ -113,7 +113,9 @@ data class PadSetup(
         fun goalJson(goal: Goal): JSONObject = when (goal) {
             is Goal.Combos -> JSONObject().put("type", "combos").put("count", goal.count)
             is Goal.Shape -> JSONObject().put("type", goal.type).put("color", Orbs.LETTERS[goal.color].toString())
-            is Goal.Blob -> JSONObject().put("type", "blob").put("color", Orbs.LETTERS[goal.color].toString()).put("min", goal.min)
+            is Goal.Blob -> JSONObject().put("type", "blob").put("color", Orbs.LETTERS[goal.color].toString()).put("min", goal.min).also { json ->
+                if (goal.max != null) json.put("max", goal.max)
+            }
             // The default set (the 5 attributes in colour order) is not written.
             is Goal.Colors -> JSONObject().put("type", "colors").put("count", goal.count).also { json ->
                 if (goal.set != Goal.Colors.DEFAULT_SET) json.put("of", JSONArray(goal.set.map { Orbs.LETTERS[it].toString() }))
@@ -142,7 +144,14 @@ data class PadSetup(
                     min != null && min.toDouble() == Math.floor(min.toDouble()) &&
                         min.toDouble() in Goal.Blob.MIN.toDouble()..Int.MAX_VALUE.toDouble(),
                 ) { "$at.min must be an integer >= ${Goal.Blob.MIN}" }
-                return Goal.Blob(color, min.toInt())
+                if (!json.has("max")) return Goal.Blob(color, min.toInt())
+                // Optional; max >= min is checked by Goal.Blob, max <= rows x cols by the constructor.
+                val max = json.opt("max") as? Number
+                require(
+                    max != null && max.toDouble() == Math.floor(max.toDouble()) &&
+                        max.toDouble() in min.toDouble()..Int.MAX_VALUE.toDouble(),
+                ) { "$at.max must be an integer >= $at.min" }
+                return Goal.Blob(color, min.toInt(), max.toInt())
             }
             return Goal.Shape(type, color)
         }

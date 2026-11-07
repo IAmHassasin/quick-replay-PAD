@@ -1709,6 +1709,164 @@
         "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
         "rounds": 1
       }
+    },
+    {
+      "name": "blob exactly 5 R",
+      "board": "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 5,
+          "max": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          2,
+          8
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "RRRRRG\nGLBDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "blob exactly 6 G impossible",
+      "board": "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "G",
+          "min": 6,
+          "max": 6
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Wood: the goals need 6 orbs, the board has 5"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "six exactly 5 R + blob 3+ G one move unmet",
+      "board": "RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 5,
+          "max": 5
+        },
+        {
+          "type": "blob",
+          "color": "G",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          2,
+          9
+        ],
+        "goalsMet": [
+          false,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "RRRRBL\nDHRGGG\nBGRDHB\nLDHBGD\nGBLHDH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc blob 3-5 R",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3,
+          "max": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          7,
+          12
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LGHLBB\nLBDDGL\nRRRLRR\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc blob exactly 4 R no diagonals",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 4,
+          "max": 4
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          15,
+          16,
+          17
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LGHLBB\nLRDDGL\nBRRRRL\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
     }
   ]
 }

@@ -118,10 +118,17 @@ internal object PadSetupDialog {
             is Goal.Shape -> 7
         }
         val count = Ui.input(activity, initialNumber.toString(), number = true).apply { minEms = 2 }
+        // "exactly" = a blob max equal to its min.
+        val exact = CheckBox(activity).apply {
+            text = "exactly"
+            setTextColor(Ui.FG)
+            isChecked = goal is Goal.Blob && goal.max == goal.min
+        }
         fun sync() {
             val kind = TYPES[type.selectedItemPosition]
             color.visibility = if (kind == "combos" || kind == "colors") android.view.View.GONE else android.view.View.VISIBLE
             count.visibility = if (kind == "combos" || kind == "blob" || kind == "colors") android.view.View.VISIBLE else android.view.View.GONE
+            exact.visibility = if (kind == "blob") android.view.View.VISIBLE else android.view.View.GONE
             count.contentDescription = when (kind) {
                 "blob" -> "Minimum connected orbs"
                 "colors" -> "Distinct colours"
@@ -139,27 +146,38 @@ internal object PadSetupDialog {
         row.addView(type, share(1.2f))
         row.addView(color, share(1f))
         row.addView(count, share(1f))
+        row.addView(exact, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         row.addView(
             Ui.button(activity, "✕") { container.removeView(row) }.apply { contentDescription = "Remove goal" },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT),
         )
-        // No editor for the colour set yet: an existing set is kept as it is.
-        row.tag = GoalRow(type, color, count, (goal as? Goal.Colors)?.set ?: Goal.Colors.DEFAULT_SET)
+        // No editor for the colour set or a blob range (max > min) yet: an existing one is kept as it
+        // is (the range while "exactly" is unchecked and the max is still >= the minimum).
+        val range = (goal as? Goal.Blob)?.max?.takeIf { it > goal.min }
+        row.tag = GoalRow(type, color, count, exact, (goal as? Goal.Colors)?.set ?: Goal.Colors.DEFAULT_SET, range)
         container.addView(row, Ui.spacedParams(activity, 4))
     }
 
     /** Views of one goal row, kept in the row's tag. */
-    private class GoalRow(val type: Spinner, val color: Spinner, val count: EditText, val colorSet: List<Int>)
+    private class GoalRow(
+        val type: Spinner,
+        val color: Spinner,
+        val count: EditText,
+        val exact: CheckBox,
+        val colorSet: List<Int>,
+        val blobMax: Int?,
+    )
 
     private fun readGoals(container: LinearLayout): List<Goal> = (0 until container.childCount).map { i ->
         val row = container.getChildAt(i).tag as GoalRow
         val kind = TYPES[row.type.selectedItemPosition]
         when (kind) {
             "combos" -> Goal.Combos(row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Combo count must be a number"))
-            "blob" -> Goal.Blob(
-                row.color.selectedItemPosition,
-                row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Connected orbs must be a number"),
-            )
+            "blob" -> {
+                val min = row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Connected orbs must be a number")
+                val max = if (row.exact.isChecked) min else row.blobMax?.takeIf { it >= min }
+                Goal.Blob(row.color.selectedItemPosition, min, max)
+            }
             "colors" -> Goal.Colors(
                 row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Colour count must be a number"),
                 row.colorSet,

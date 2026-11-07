@@ -305,3 +305,36 @@ test('tshape goals: a shape goal with a colour, in the validator and the schema 
   assert.ok(matching[0].properties.type.enum.includes('tshape'));
   assert.ok(!schema.$defs.goal.oneOf.some((branch) => matchesSchema(branch, { type: 'tshape' })), 'a colour is required');
 });
+
+test('blob max: an optional integer from min to rows x cols, in the validator and the schema (REHA-14)', () => {
+  for (const goal of [
+    { type: 'blob', color: 'R', min: 5, max: 5 },
+    { type: 'blob', color: 'R', min: 3, max: 5 },
+    { type: 'blob', color: 'H', min: 5, max: 30 },
+    { type: 'blob', color: 'R', min: 5 },
+  ]) {
+    assert.deepEqual(validateScript(colorsScript(goal)), [], JSON.stringify(goal));
+  }
+  for (const goal of [
+    { type: 'blob', color: 'R', min: 5, max: 4 },
+    { type: 'blob', color: 'R', min: 5, max: 31 },
+    { type: 'blob', color: 'R', min: 5, max: 5.5 },
+    { type: 'blob', color: 'R', min: 5, max: '5' },
+    { type: 'blob', color: 'R', min: 5, max: null },
+  ]) {
+    assert.match(validateScript(colorsScript(goal))[0] ?? '', /pad\.goals\[0\]/, JSON.stringify(goal));
+  }
+  // The schema: max is an optional integer 3-81 (max >= min is checked by the apps, not the schema).
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const branches = schema.$defs.goal.oneOf;
+  const blob = branches.find((b) => b.properties.type.const === 'blob');
+  assert.deepEqual(blob.required, ['type', 'color', 'min']);
+  assert.deepEqual(blob.properties.max, { type: 'integer', minimum: 3, maximum: 81 });
+  const matching = (goal) => branches.filter((b) => matchesSchema(b, goal)).length;
+  for (const goal of [{ type: 'blob', color: 'R', min: 5, max: 5 }, { type: 'blob', color: 'R', min: 5 }]) {
+    assert.equal(matching(goal), 1, JSON.stringify(goal));
+  }
+  for (const goal of [{ type: 'blob', color: 'R', min: 5, max: 2 }, { type: 'blob', color: 'R', min: 5, max: 82 }, { type: 'blob', color: 'R', min: 5, max: 5.5 }]) {
+    assert.equal(matching(goal), 0, JSON.stringify(goal));
+  }
+});

@@ -135,12 +135,15 @@ function validatePad(pad, add) {
     pad.goals.forEach((g, i) => {
       let ok = false;
       if (isObject(g) && g.type === 'combos') ok = Number.isInteger(g.count) && g.count >= 1;
-      else if (isObject(g) && g.type === 'blob') ok = PAD_COLORS.includes(g.color) && Number.isInteger(g.min) && g.min >= 3 && g.min <= cells;
+      else if (isObject(g) && g.type === 'blob') {
+        ok = PAD_COLORS.includes(g.color) && Number.isInteger(g.min) && g.min >= 3 && g.min <= cells
+          && (g.max === undefined || (Number.isInteger(g.max) && g.max >= g.min && g.max <= cells));
+      }
       else if (isObject(g) && g.type === 'colors') ok = validColorsGoal(g);
       else if (isObject(g)) ok = PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color);
       if (!ok) {
         add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H }, { type: "combos", count: integer >= 1 }`
-          + `, { type: "blob", color: R|B|G|L|D|H, min: integer from 3 to rows x cols }`
+          + `, { type: "blob", color: R|B|G|L|D|H, min: integer from 3 to rows x cols, max?: integer from min to rows x cols }`
           + ` or { type: "colors", count: integer from 1 to 6, of?: distinct R|B|G|L|D|H (at least count) }`);
       }
     });

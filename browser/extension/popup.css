@@ -73,6 +73,7 @@ select {
 .pad-goal { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
 .pad-goal .goal-count { width: 64px; }
 .pad-goal [hidden] { display: none; }
+.pad-goal .goal-exact { display: flex; gap: 2px; align-items: center; white-space: nowrap; }
 .pad-result {
   margin: 8px 0 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
   font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere;

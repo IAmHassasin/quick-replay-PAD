@@ -50,10 +50,11 @@ const SEEN_LIMIT = 1_000_000;
 
 /**
  * Validates goals and converts colour letters to orb codes.
- * @param {Array<{type: string, color?: string | number, count?: number, min?: number}>} goals
+ * @param {Array<{type: string, color?: string | number, count?: number, min?: number, max?: number}>} goals
  * @param {{rows: number, cols: number}} [size] Board size; a blob goal needs at most rows x cols
- *   orbs (without a size: at most the largest board).
- * @returns {Array<{type: string, color?: number, count?: number, min?: number}>}
+ *   orbs (without a size: at most the largest board). A blob `max` is optional (absent: no upper
+ *   bound); when given it is an integer from `min` to that same limit.
+ * @returns {Array<{type: string, color?: number, count?: number, min?: number, max?: number}>}
  * @throws {Error} On an invalid goal.
  */
 export function normalizeGoals(goals, size) {
@@ -74,7 +75,12 @@ export function normalizeGoals(goals, size) {
       if (goal.min > max) {
         throw new Error(`${where}: blob size must be at most ${max}${size ? ` on a ${size.cols}x${size.rows} board` : ''}`);
       }
-      return { type: 'blob', color, min: goal.min };
+      if (goal.max === undefined) return { type: 'blob', color, min: goal.min };
+      if (!Number.isInteger(goal.max) || goal.max < goal.min) throw new Error(`${where}: blob max must be an integer >= min (${goal.min})`);
+      if (goal.max > max) {
+        throw new Error(`${where}: blob max must be at most ${max}${size ? ` on a ${size.cols}x${size.rows} board` : ''}`);
+      }
+      return { type: 'blob', color, min: goal.min, max: goal.max };
     }
     return { type: goal.type, color };
   });
@@ -112,8 +118,9 @@ function colorsMask(goal) {
 }
 
 /**
- * Human-readable goal, e.g. "Row of Light", "7+ combos", "5+ Fire connected", "3+ colours" or
- * "2+ colours of Water, Heart" (a set other than the 5 attributes, in colour order).
+ * Human-readable goal, e.g. "Row of Light", "7+ combos", "5+ Fire connected", "exactly 5 Fire",
+ * "5-7 Fire connected", "3+ colours" or "2+ colours of Water, Heart" (a set other than the 5
+ * attributes, in colour order).
  */
 export function goalLabel(goal) {
   if (goal.type === 'combos') return `${goal.count}+ combos`;
@@ -123,7 +130,11 @@ export function goalLabel(goal) {
     const names = ORB_NAMES.slice(0, COLORS_SET_MAX).filter((_, color) => mask & (1 << color));
     return `${goal.count}+ colours of ${names.join(', ')}`;
   }
-  if (goal.type === 'blob') return `${goal.min}+ ${ORB_NAMES[goal.color]} connected`;
+  if (goal.type === 'blob') {
+    if (goal.max === undefined) return `${goal.min}+ ${ORB_NAMES[goal.color]} connected`;
+    if (goal.max === goal.min) return `exactly ${goal.min} ${ORB_NAMES[goal.color]}`;
+    return `${goal.min}-${goal.max} ${ORB_NAMES[goal.color]} connected`;
+  }
   return `${SHAPE_LABELS[goal.type]} of ${ORB_NAMES[goal.color]}`;
 }
 
@@ -474,15 +485,15 @@ class Evaluator {
     this.combos = 0;
     /** Colour bit mask of each `colors` goal (0 for other goals). */
     this.masks = units.map((unit) => (unit.type === 'colors' ? colorsMask(unit) : 0));
-    // Goals that share type and colour (and blob size) need distinct combos; group them.
+    // Goals that share type and colour (and blob size range) need distinct combos; group them.
     this.groups = new Map();
     units.forEach((unit, index) => {
       // `colors` goals are about the whole turn, like `combos`: one group, each goal checked alone.
       const k = unit.type === 'combos' || unit.type === 'colors' ? unit.type
-        : unit.type === 'blob' ? `blob:${unit.color}:${unit.min}` : `${unit.type}:${unit.color}`;
+        : unit.type === 'blob' ? `blob:${unit.color}:${unit.min}:${unit.max ?? ''}` : `${unit.type}:${unit.color}`;
       if (!this.groups.has(k)) {
         const targets = unit.type === 'combos' || unit.type === 'colors' ? []
-          : unit.type === 'blob' ? blobPlacements(unit.min, rows, cols) : shapePlacements(unit.type, rows, cols);
+          : unit.type === 'blob' ? blobPlacements(unit.min, rows, cols, unit.max) : shapePlacements(unit.type, rows, cols);
         const placements = targets.map((p) => {
           const inside = new Uint8Array(n);
           for (const i of p.cells) inside[i] = 1;
@@ -492,6 +503,8 @@ class Evaluator {
           type: unit.type,
           color: unit.color,
           min: unit.min,
+          // A blob without max has no upper bound.
+          max: unit.max ?? Infinity,
           indices: [],
           placements,
           values: new Float64Array(placements.length),
@@ -522,7 +535,8 @@ class Evaluator {
     let n = 0;
     for (const combo of combos) {
       if (combo.color !== group.color) continue;
-      if (group.type === 'blob' ? combo.cells.length >= group.min : comboHasShape(group.type, combo.cells, this.rows, this.cols)) n++;
+      const size = combo.cells.length;
+      if (group.type === 'blob' ? size >= group.min && size <= group.max : comboHasShape(group.type, combo.cells, this.rows, this.cols)) n++;
     }
     return n;
   }

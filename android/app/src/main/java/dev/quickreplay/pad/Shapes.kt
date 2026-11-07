@@ -151,18 +151,23 @@ object Shapes {
 
     /**
      * Target areas for a `blob` goal (port of `blobPlacements`, same order): every filled rectangle
-     * with `min <= h * w <= min + 2` and a side of at least 3, by height, width, row, column; when
-     * none is that close to [min], the rectangles of the smallest area >= [min]. Not exact.
+     * with `min <= h * w <= min + 2`, `h * w <= max` and a side of at least 3, by height, width,
+     * row, column; when none is that close to [min], the rectangles of the smallest area >= [min]
+     * (and <= [max]). Exact (border penalty) only when [max] == [min]. When no rectangle has
+     * [min]..[max] orbs (e.g. exactly 7 on 6x5), the placements without [max], not exact.
+     * [max] = [Int.MAX_VALUE]: no upper bound.
      */
-    fun blobPlacements(min: Int, rows: Int, cols: Int): List<Placement> {
+    fun blobPlacements(min: Int, rows: Int, cols: Int, max: Int = Int.MAX_VALUE): List<Placement> {
         val sizes = ArrayList<Pair<Int, Int>>()
-        for (h in 1..rows) for (w in 1..cols) if (h * w >= min && maxOf(h, w) >= 3) sizes += h to w
+        for (h in 1..rows) for (w in 1..cols) if (h * w >= min && h * w <= max && maxOf(h, w) >= 3) sizes += h to w
+        if (sizes.isEmpty()) return blobPlacements(min, rows, cols)
+        val exact = max == min
         var limit = min + BLOB_SLACK
         if (sizes.none { (h, w) -> h * w <= limit }) limit = sizes.minOf { (h, w) -> h * w }
         val out = ArrayList<Placement>()
         for ((h, w) in sizes) {
             if (h * w > limit) continue
-            for (cells in rectanglePlacements(h, w, rows, cols)) out += Placement(cells, exact = false)
+            for (cells in rectanglePlacements(h, w, rows, cols)) out += Placement(cells, exact)
         }
         return out
     }

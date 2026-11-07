@@ -103,7 +103,7 @@ class PadSolverTest {
         val g = array.getJSONObject(i)
         when (g.getString("type")) {
             "combos" -> Goal.Combos(g.getInt("count"))
-            "blob" -> Goal.Blob(Orbs.code(g.getString("color")[0]), g.getInt("min"))
+            "blob" -> Goal.Blob(Orbs.code(g.getString("color")[0]), g.getInt("min"), if (g.has("max")) g.getInt("max") else null)
             "colors" -> g.optJSONArray("of")
                 ?.let { of -> Goal.Colors(g.getInt("count"), List(of.length()) { k -> Orbs.code(of.getString(k)[0]) }) }
                 ?: Goal.Colors(g.getInt("count"))

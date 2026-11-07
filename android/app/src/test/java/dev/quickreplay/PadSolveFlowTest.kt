@@ -194,6 +194,27 @@ class PadSolveFlowTest {
     }
 
     @Test
+    fun scriptJsonKeepsBlobMax() {
+        val setup = PadSetup(
+            goals = listOf(Goal.Blob(Orbs.code('D'), 5, 5), Goal.Blob(Orbs.code('R'), 3, 6), Goal.Blob(Orbs.code('G'), 4)),
+        )
+        val script = Script("blob max", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"max\": 5"))
+        // No max key for a blob without max.
+        assertEquals(2, Regex("\"max\"").findAll(json).count())
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("exactly 5 Dark + 3-6 Fire connected + 4+ Wood connected · 150 ms/move", setup.summary())
+
+        // Only goal 0 (exactly 5 Dark) has max 5.
+        val exact = "\"max\": 5"
+        val error = "pad: pad.goals[0].max must be an integer >= pad.goals[0].min"
+        for (bad in listOf("4", "5.5", "\"5\"", "null")) assertFormatError(json.replace(exact, "\"max\": $bad"), error)
+        // At most rows x cols orbs: 30 on the default 6x5 board.
+        assertFormatError(json.replace(exact, "\"max\": 31"), "pad: Blob max must be at most 30 on a 6x5 board")
+    }
+
+    @Test
     fun scriptJsonKeepsColorsGoals() {
         val custom = Goal.Colors(2, listOf(Orbs.code('H'), Orbs.code('B')))
         val setup = PadSetup(goals = listOf(Goal.Colors(3), custom))

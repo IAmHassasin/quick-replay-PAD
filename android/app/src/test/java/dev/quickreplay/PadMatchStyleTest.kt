@@ -677,4 +677,118 @@ class PadMatchStyleTest {
         assertUnmet(teeFar, listOf(shape("tshape", 'D')))
         assertShapeGoal(teeFar, "tshape", 'D')
     }
+
+    // --- blob with max: exactly N (or N to M) connected orbs (REHA-14) -------------------------------
+
+    // R6, no initial match. The R at r1c3 moved up-left to r0c2 makes a Fire combo of 6 (R R R R in
+    // row 0 plus r1c2, r2c2 below) and, with the G it swaps down, G G G in row 1: the only move that
+    // makes a Wood combo next to Fire. Other one-move Fire combos have 3, 4 or 5 orbs (e.g. the R at
+    // r0c3 moved left: R R R in row 0 plus r1c2, r2c2). B5 G6 L3 D5 H5.
+    private val six = "RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH"
+
+    // Only 3 (r3Only) or 4 (r4Only) Fire orbs; one move up of the R at r1c2 joins them in row 0.
+    private val r3Only = "RRGLBL\nDHRHLG\nBGLDHB\nLDHBGD\nGBLHDH"
+    private val r4Only = "RRGRBL\nDHRHLG\nBGLDHB\nLDHBGD\nGBLHDH"
+
+    private fun blob(color: Char, min: Int, max: Int?) = Goal.Blob(Orbs.code(color), min, max)
+
+    private fun fireSizes(combos: List<Combo>) = combos.filter { it.color == Orbs.code('R') }.map { it.cells.size }
+
+    private val oneMove get() = options.copy(maxMoves = 1)
+
+    @Test
+    fun blobMaxExactlyFiveFireOnTheBlobBoardInOneMove() {
+        val s = assertSolved(blobBoard, listOf(blob('R', 5, 5)))
+        assertEquals(listOf(GoalResult("exactly 5 Fire", true)), s.result.goals)
+        assertEquals(1, s.result.moves)
+        assertEquals(listOf(5), fireSizes(s.combos))
+    }
+
+    @Test
+    fun blobMaxImpossibleFromOrbCountsWithoutSearching() {
+        assertImpossible(blobBoard, listOf(blob('G', 6, 6)), listOf("Wood: the goals need 6 orbs, the board has 5"))
+    }
+
+    @Test
+    fun blobMaxComboLargerThanMaxDoesNotMeetTheGoal() {
+        // The diagonal move: Fire x6 and Wood x3, so 6+ Fire and 3+ Wood together are met.
+        assertEquals(listOf(6), fireSizes(assertSolved(six, listOf(blob('R', 6), blob('G', 3)), oneMove).combos))
+        // Exactly 5 alone is still solved, with another move (the R at r0c3 moved left).
+        val exact = assertSolved(six, listOf(blob('R', 5, 5)), oneMove)
+        assertEquals(listOf(GoalResult("exactly 5 Fire", true)), exact.result.goals)
+        assertEquals(listOf(5), fireSizes(exact.combos))
+        // Exactly 5 Fire plus 3+ Wood: only the diagonal move makes Wood, and its Fire combo of 6 is
+        // too big. If 6 counted for "exactly 5" that move would meet both goals.
+        val board = Board.parse(six)
+        val result = Solver.solve(board, listOf(blob('R', 5, 5), blob('G', 3)), oneMove)
+        assertEquals("partial", result.status)
+        assertEquals(1, result.goals.count { it.met })
+        assertEquals(5 in fireSizes(replay(board, result)), result.goals[0].met)
+        // 5 to 6 accepts the combo of 6.
+        val ranged = assertSolved(six, listOf(blob('R', 5, 6), blob('G', 3)), oneMove)
+        assertEquals(listOf("5-6 Fire connected", "3+ Wood connected"), ranged.result.goals.map { it.label })
+        assertEquals(listOf(6), fireSizes(ranged.combos))
+    }
+
+    @Test
+    fun blobMaxRangeAcceptsCombosFromMinToMaxAndRejectsBiggerOnes() {
+        val range = blob('R', 3, 5)
+        // 3 Fire orbs: one move makes a combo of 3.
+        assertEquals(listOf(3), fireSizes(assertSolved(r3Only, listOf(range), oneMove).combos))
+        // 4 Fire orbs: the combo of 4 meets 4 to 5; with 3 to 5 a combo of 3 or 4 does.
+        assertEquals(listOf(4), fireSizes(assertSolved(r4Only, listOf(blob('R', 4, 5)), oneMove).combos))
+        assertTrue(fireSizes(assertSolved(r4Only, listOf(range), oneMove).combos).all { it in 3..5 })
+        // BLOB: one move makes Fire combos of 3 to 5; the combo of 5 meets 5 to 6.
+        val blobSolved = assertSolved(blobBoard, listOf(range), oneMove)
+        assertEquals(listOf(GoalResult("3-5 Fire connected", true)), blobSolved.result.goals)
+        assertTrue(fireSizes(blobSolved.combos).all { it in 3..5 })
+        assertEquals(listOf(5), fireSizes(assertSolved(blobBoard, listOf(blob('R', 5, 6)), oneMove).combos))
+        // The combo of 6 on SIX does not count: 3 to 5 Fire plus 3+ Wood is unmet in one move.
+        val board = Board.parse(six)
+        val result = Solver.solve(board, listOf(range, blob('G', 3)), oneMove)
+        assertEquals("partial", result.status)
+        assertEquals(1, result.goals.count { it.met })
+        assertEquals(fireSizes(replay(board, result)).any { it in 3..5 }, result.goals[0].met)
+    }
+
+    @Test
+    fun blobMaxMustBeFromMinToTheBoardSizeAndAbsentMeansNoUpperBound() {
+        assertEquals(5, blob('R', 5, 5).max)
+        assertNull(blob('R', 5).max)
+        assertEquals(blob('R', 5), blob('R', 5, null))
+        for (max in listOf(4, 0, -1)) {
+            val error = assertThrows("max $max", IllegalArgumentException::class.java) { blob('R', 5, max) }
+            assertEquals("Blob max must be >= min (5)", error.message)
+        }
+        assertThrows(IllegalArgumentException::class.java) { blob('R', 5, 82) }
+        val error = assertThrows(IllegalArgumentException::class.java) { Solver.solve(Board.parse(blobBoard), listOf(blob('R', 5, 31)), options) }
+        assertEquals("Blob max must be at most 30 on a 6x5 board", error.message)
+        assertEquals("exactly 5 Dark", blob('D', 5, 5).label)
+        assertEquals("5-7 Wood connected", blob('G', 5, 7).label)
+        assertEquals("5+ Wood connected", blob('G', 5, null).label)
+    }
+
+    @Test
+    fun blobMaxPlacementsAreExactRectanglesOfMinWhenMaxEqualsMin() {
+        // Exactly 5: 1x5 and 5x1 only, exact (border penalty like tpa).
+        val exact = Shapes.blobPlacements(5, 5, 6, 5)
+        assertEquals(5 * 2 + 6 * 1, exact.size)
+        for (p in exact) {
+            assertEquals(5, p.cells.size)
+            assertTrue(p.exact)
+        }
+        // 5 to 6: the no-max placements of up to 6 orbs, not exact.
+        val ranged = Shapes.blobPlacements(5, 5, 6, 6)
+        val expected = Shapes.blobPlacements(5, 5, 6).filter { it.cells.size <= 6 }
+        assertEquals(expected.map { it.cells.toList() }, ranged.map { it.cells.toList() })
+        assertTrue(ranged.none { it.exact })
+        // No rectangle of exactly 7 fits 6x5: fall back to the no-max placements, not exact.
+        assertEquals(
+            Shapes.blobPlacements(7, 5, 6).map { it.cells.toList() to it.exact },
+            Shapes.blobPlacements(7, 5, 6, 7).map { it.cells.toList() to it.exact },
+        )
+        for (rows in 3..9) for (cols in 3..9) for (min in 3..rows * cols) {
+            assertTrue("exactly $min on ${cols}x$rows", Shapes.blobPlacements(min, rows, cols, min).isNotEmpty())
+        }
+    }
 }

@@ -41,7 +41,7 @@ The popup's **PAD solver** panel solves a Puzzle & Dragons board on the
    board) and keep it as the active tab.
 2. In the popup, set the goals: Row, Column, 3x3 square, Cross, L shape, 4 in a line, T shape
    (each for one colour), "Combos (at least)", or "Connected orbs (at least)" (one combo of a colour with at
-   least N orbs; add it twice for two such combos), or "Colours (at least)" (combos of at least N
+   least N orbs, or exactly N with "exactly"; add it twice for two such combos), or "Colours (at least)" (combos of at least N
    different colours among Fire, Water, Wood, Light and Dark; a script's `of` list can change the
    set, e.g. add Heart). Several goals can be combined.
 3. **Solve & drag** reads the board, solves it and drags the path through `chrome.debugger`

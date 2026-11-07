@@ -256,6 +256,8 @@ function addGoalRow(goal) {
   const type = item.querySelector('.goal-type');
   const color = item.querySelector('.goal-color');
   const count = item.querySelector('.goal-count');
+  const exact = item.querySelector('.goal-exact');
+  const exactBox = item.querySelector('.goal-exact-box');
   for (const value of SHAPE_TYPES) type.append(new Option(SHAPE_LABELS[value], value));
   type.append(new Option('Combos (at least)', 'combos'));
   type.append(new Option('Connected orbs (at least)', 'blob'));
@@ -266,13 +268,18 @@ function addGoalRow(goal) {
   count.value = String(goal.count ?? goal.min ?? DEFAULT_COMBO_GOAL);
   // The popup has no editor for the colour set of a `colors` goal; keep a stored one as it is.
   if (goal.type === 'colors' && Array.isArray(goal.of)) item.dataset.of = JSON.stringify(goal.of);
+  // "exactly" = a blob max equal to its min. The popup has no editor for a range (max > min);
+  // keep a stored one while the box is unchecked.
+  exactBox.checked = goal.type === 'blob' && goal.max !== undefined && goal.max === goal.min;
+  if (goal.type === 'blob' && Number.isInteger(goal.max) && goal.max > goal.min) item.dataset.max = String(goal.max);
   const sync = () => {
-    // A blob goal uses both the colour and the number (its minimum size); a colours goal only
-    // the number (distinct colours, 1-6).
+    // A blob goal uses both the colour and the number (its minimum size, or its exact size with
+    // "exactly"); a colours goal only the number (distinct colours, 1-6).
     const blob = type.value === 'blob';
     const colors = type.value === 'colors';
     color.hidden = type.value === 'combos' || colors;
     count.hidden = type.value !== 'combos' && !blob && !colors;
+    exact.hidden = !blob;
     count.min = blob ? '3' : '1';
     count.max = blob ? '81' : colors ? '6' : '40';
     count.setAttribute('aria-label', blob ? 'Minimum connected orbs' : colors ? 'Distinct colours' : 'Combo count');
@@ -286,7 +293,13 @@ function readPadSettings() {
   const goals = [...ui.padGoals.children].map((item) => {
     const type = item.querySelector('.goal-type').value;
     if (type === 'combos') return { type, count: Number(item.querySelector('.goal-count').value) };
-    if (type === 'blob') return { type, color: item.querySelector('.goal-color').value, min: Number(item.querySelector('.goal-count').value) };
+    if (type === 'blob') {
+      const min = Number(item.querySelector('.goal-count').value);
+      const goal = { type, color: item.querySelector('.goal-color').value, min };
+      if (item.querySelector('.goal-exact-box').checked) return { ...goal, max: min };
+      const kept = Number(item.dataset.max);
+      return item.dataset.max && kept >= min ? { ...goal, max: kept } : goal;
+    }
     if (type === 'colors') {
       const goal = { type, count: Number(item.querySelector('.goal-count').value) };
       return item.dataset.of ? { ...goal, of: JSON.parse(item.dataset.of) } : goal;

@@ -30,6 +30,9 @@ const DUO = 'RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD';
 // the same board with the D one row lower (the T needs two moves).
 const TEE = 'BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG';
 const TEE_FAR = 'BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG';
+// Blob max board (REHA-14): one move makes a Fire combo of 6 together with G G G, or a Fire combo
+// of 3 to 5 without Wood.
+const SIX = 'RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH';
 const FULL =Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
@@ -92,6 +95,13 @@ const cases = [
   ['tee far tshape D one move unmet', TEE_FAR, [{ type: 'tshape', color: 'D' }], { ...single, maxMoves: 1 }],
   ['tee far tshape D', TEE_FAR, [{ type: 'tshape', color: 'D' }], single],
   ['tee far tshape D no diagonals', TEE_FAR, [{ type: 'tshape', color: 'D' }], { ...single, diagonals: false }],
+  // Blob with max (REHA-14): exactly N (exact placements with the border penalty), impossible, a
+  // combo above max that does not count, a range, and exactly N without diagonals.
+  ['blob exactly 5 R', BLOB, [{ type: 'blob', color: 'R', min: 5, max: 5 }], single],
+  ['blob exactly 6 G impossible', BLOB, [{ type: 'blob', color: 'G', min: 6, max: 6 }], single],
+  ['six exactly 5 R + blob 3+ G one move unmet', SIX, [{ type: 'blob', color: 'R', min: 5, max: 5 }, { type: 'blob', color: 'G', min: 3 }], { ...single, maxMoves: 1 }],
+  ['doc blob 3-5 R', DOC, [{ type: 'blob', color: 'R', min: 3, max: 5 }], single],
+  ['doc blob exactly 4 R no diagonals', DOC, [{ type: 'blob', color: 'R', min: 4, max: 4 }], { ...single, diagonals: false }],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {

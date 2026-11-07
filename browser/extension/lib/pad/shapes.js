@@ -219,27 +219,32 @@ export function rectanglePlacements(h, w, rows, cols) {
 const BLOB_SLACK = 2;
 
 /**
- * Target areas for a `blob` goal (one combo of at least `min` connected orbs): every filled
- * rectangle with `min <= h * w <= min + 2` and a side of at least 3 (a combo needs 3 in a line),
- * enumerated by height, then width, then row, then column. When no rectangle is that close to
- * `min` (e.g. 73 on 9x9), the rectangles of the smallest area >= `min` are used instead. Not
- * `exact`: a bigger combo still meets the goal. The Kotlin port must keep this order (it decides
+ * Target areas for a `blob` goal (one combo of `min` to `max` connected orbs; `max` absent =
+ * no upper bound): every filled rectangle with `min <= h * w <= min + 2`, `h * w <= max` and a
+ * side of at least 3 (a combo needs 3 in a line), enumerated by height, then width, then row,
+ * then column. When no rectangle is that close to `min` (e.g. 73 on 9x9), the rectangles of the
+ * smallest area >= `min` (and <= `max`) are used instead. `exact` (border penalty, like `tpa`)
+ * only when `max === min`: then a bigger combo misses the goal. When no rectangle has
+ * `min..max` orbs (e.g. exactly 7 on 6x5), the placements without `max` are used, not exact;
+ * the goal check still rejects bigger combos. The Kotlin port must keep this order (it decides
  * ties in the solver's scoring).
  * @returns {Array<{cells: number[], exact: boolean}>}
  */
-export function blobPlacements(min, rows, cols) {
+export function blobPlacements(min, rows, cols, max = Infinity) {
   const sizes = [];
   for (let h = 1; h <= rows; h++) {
     for (let w = 1; w <= cols; w++) {
-      if (h * w >= min && Math.max(h, w) >= 3) sizes.push([h, w]);
+      if (h * w >= min && h * w <= max && Math.max(h, w) >= 3) sizes.push([h, w]);
     }
   }
+  if (sizes.length === 0) return blobPlacements(min, rows, cols);
+  const exact = max === min;
   let limit = min + BLOB_SLACK;
   if (!sizes.some(([h, w]) => h * w <= limit)) limit = Math.min(...sizes.map(([h, w]) => h * w));
   const out = [];
   for (const [h, w] of sizes) {
     if (h * w > limit) continue;
-    for (const cells of rectanglePlacements(h, w, rows, cols)) out.push({ cells, exact: false });
+    for (const cells of rectanglePlacements(h, w, rows, cols)) out.push({ cells, exact });
   }
   return out;
 }

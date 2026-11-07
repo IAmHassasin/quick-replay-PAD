@@ -59,11 +59,12 @@
         },
         {
           "type": "object",
-          "description": "One combo of the colour with at least `min` connected orbs (at most rows x cols). A repeated goal needs another combo.",
+          "description": "One combo of the colour with at least `min` and at most `max` connected orbs (both at most rows x cols; `max` absent = no upper bound, `max` = `min` = exactly that many). A repeated goal needs another combo. JSON Schema cannot compare two properties: `max` >= `min` is checked by the apps.",
           "properties": {
             "type": { "const": "blob" },
             "color": { "enum": ["R", "B", "G", "L", "D", "H"] },
-            "min": { "type": "integer", "minimum": 3, "maximum": 81 }
+            "min": { "type": "integer", "minimum": 3, "maximum": 81 },
+            "max": { "type": "integer", "minimum": 3, "maximum": 81 }
           },
           "required": ["type", "color", "min"]
         },
