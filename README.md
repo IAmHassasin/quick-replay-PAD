@@ -43,12 +43,14 @@ request to `api.github.com` and the APK download from `github.com`, no token, no
 Installing over the old app only works when both builds are signed with the same key (see below);
 otherwise Android refuses the update and you have to uninstall first.
 
-To publish a new version (the in-app update depends on the `v<version>` tag and the
-`quick-replay-pad-<version>.apk` asset name): bump `versionCode` / `versionName` in `android/app/build.gradle.kts`,
-run `./gradlew testDebugUnitTest exportApk`, then
-`gh release create v<version> "android/dist/quick-replay-pad-<version>.apk" --title "Quick Replay PAD v<version>"`
-(copy the exported `Quick Replay PAD <version>.apk` to that name first; GitHub replaces spaces in
-asset names).
+A push to `main` publishes the next version (`.github/workflows/cd.yml`): unit tests and lint,
+then a debug APK, then a GitHub Release. The tag is `v<major>.<minor>.<run>` and the asset is
+`quick-replay-pad-<version>.apk` — the in-app updater requires both. `<major>.<minor>` comes from
+`versionName` in `android/app/build.gradle.kts` (bump the minor there for a new minor line); `<run>`
+is the workflow run number and must stay below 100. The APK is signed with the debug keystore stored
+as the `ANDROID_DEBUG_KEYSTORE_BASE64` secret, so it installs over previous releases. Refresh that
+secret with `bash scripts/ci/set-github-secrets.sh` (reads `~/.android/debug.keystore`, prints nothing
+from the file). `workflow_dispatch` on `main` publishes the same way.
 
 ### Build
 

@@ -13,8 +13,10 @@ android {
         minSdk = 26
         targetSdk = 36
         // versionCode = major * 10000 + minor * 100 + patch, so it always grows with versionName.
-        versionCode = 200
-        versionName = "0.2.0"
+        // CI passes -PappVersionCode / -PappVersionName (ORG_GRADLE_PROJECT_* works too) and uses
+        // major.minor from the values below, with the workflow run number as the patch.
+        versionCode = (project.findProperty("appVersionCode") as String?)?.toInt() ?: 200
+        versionName = (project.findProperty("appVersionName") as String?) ?: "0.2.0"
     }
 
     buildTypes {

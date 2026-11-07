@@ -104,7 +104,12 @@ playback now runs on its own `HandlerThread` and gesture callbacks are delivered
 - `AppSettings.showPanel` = false hides the panel only while idle; `updatePanelVisibility()` shows
   it while recording or playing so SAVE/STOP/PAUSE stay reachable.
 - Version: `versionCode = major*10000 + minor*100 + patch`. `./gradlew exportApk` writes
-  `android/dist/Quick Replay PAD <versionName>.apk` (PAD fork); the owner wants a new APK after every change round.
+  `android/dist/Quick Replay PAD <versionName>.apk` (PAD fork). A push to `main` runs
+  `.github/workflows/cd.yml`: tests, debug APK signed with the `ANDROID_DEBUG_KEYSTORE_BASE64`
+  secret, and a GitHub Release `v<major>.<minor>.<run>` whose asset is
+  `quick-replay-pad-<version>.apk` (the name the in-app updater requires). CI takes major.minor
+  from `versionName` in `android/app/build.gradle.kts` and the workflow run number as the patch
+  (must stay below 100).
 
 ## Gotchas learned (do not regress)
 
