@@ -1,0 +1,2099 @@
+{
+  "generatedAt": "2026-11-07T06:42:05.201Z",
+  "source": "Mapaler/PADDashFormation monsters-info/mon_ja.json + skill_ja.json (JP server card and skill data)",
+  "totals": {
+    "monstersInFile": 14338,
+    "monstersWithLeaderSkill": 9644,
+    "selected": 5000,
+    "idRange": [
+      5601,
+      14303
+    ],
+    "distinctLeaderSkills": 4400
+  },
+  "styles": {
+    "blob_min": {
+      "title": "N+ orbs of one colour connected",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 1222,
+      "monsters": 1238,
+      "parameters": [
+        [
+          "N=6 (one colour)",
+          615
+        ],
+        [
+          "N=5 (one colour)",
+          578
+        ],
+        [
+          "N=4 (one colour)",
+          237
+        ],
+        [
+          "N=9 (one colour)",
+          114
+        ],
+        [
+          "N=5 (any colour)",
+          80
+        ],
+        [
+          "N=6 (two colours together)",
+          64
+        ],
+        [
+          "N=5 (two colours together)",
+          46
+        ],
+        [
+          "N=10 (one colour)",
+          41
+        ],
+        [
+          "N=4 (two colours together)",
+          37
+        ],
+        [
+          "N=7 (one colour)",
+          31
+        ],
+        [
+          "N=3 (one colour)",
+          26
+        ],
+        [
+          "N=12 (one colour)",
+          24
+        ],
+        [
+          "N=8 (one colour)",
+          21
+        ],
+        [
+          "N=6 (one of RH)",
+          17
+        ],
+        [
+          "N=5 (one of GD)",
+          15
+        ],
+        [
+          "N=5 (one of LD)",
+          15
+        ],
+        [
+          "N=4 (any colour)",
+          15
+        ],
+        [
+          "N=6 (any colour)",
+          15
+        ],
+        [
+          "N=9 (two colours together)",
+          10
+        ],
+        [
+          "N=5 (one of RD)",
+          9
+        ],
+        [
+          "N=6 (one of LD)",
+          8
+        ],
+        [
+          "N=3 (one of PM)",
+          8
+        ],
+        [
+          "N=6 (one of RD)",
+          7
+        ],
+        [
+          "N=9 (one of GL)",
+          7
+        ],
+        [
+          "N=5 (one of RL)",
+          7
+        ],
+        [
+          "N=5 (one of BL)",
+          6
+        ],
+        [
+          "N=6 (one of BL)",
+          6
+        ],
+        [
+          "N=5 (one of RB)",
+          6
+        ],
+        [
+          "N=6 (one of GD)",
+          4
+        ],
+        [
+          "N=4 (one of RL)",
+          4
+        ],
+        [
+          "N=4 (one of BD)",
+          4
+        ],
+        [
+          "N=6 (one of RG)",
+          4
+        ],
+        [
+          "N=9 (one of BL)",
+          4
+        ],
+        [
+          "N=5 (one of RG)",
+          3
+        ],
+        [
+          "N=9 (one of RG)",
+          3
+        ],
+        [
+          "N=12 (one of RD)",
+          3
+        ],
+        [
+          "N=4 (one of RG)",
+          3
+        ],
+        [
+          "N=12 (one of BD)",
+          2
+        ],
+        [
+          "N=10 (one of RD)",
+          2
+        ],
+        [
+          "N=10 (one of GL)",
+          2
+        ],
+        [
+          "N=12 (one of BL)",
+          2
+        ],
+        [
+          "N=4 (one of GD)",
+          2
+        ],
+        [
+          "N=4 (one of LD)",
+          2
+        ],
+        [
+          "N=4 (one of RD)",
+          2
+        ],
+        [
+          "N=5 (one of BG)",
+          2
+        ],
+        [
+          "N=5 (one of GL)",
+          2
+        ],
+        [
+          "N=6 (one of RB)",
+          2
+        ],
+        [
+          "N=6 (one of RL)",
+          2
+        ],
+        [
+          "N=7 (two colours together)",
+          2
+        ],
+        [
+          "N=3 (two colours together)",
+          2
+        ],
+        [
+          "N=4 (one of LH)",
+          2
+        ],
+        [
+          "N=6 (one of BJ)",
+          2
+        ],
+        [
+          "N=9 (one of GD)",
+          1
+        ],
+        [
+          "N=10 (two colours together)",
+          1
+        ],
+        [
+          "N=10 (one of BD)",
+          1
+        ],
+        [
+          "N=9 (any colour)",
+          1
+        ],
+        [
+          "N=6 (one of GL)",
+          1
+        ],
+        [
+          "N=7 (any colour)",
+          1
+        ],
+        [
+          "N=5 (one of BGLDHJPMX)",
+          1
+        ],
+        [
+          "N=5 (one of RBLDHJPMX)",
+          1
+        ],
+        [
+          "N=4 (one of PM)",
+          1
+        ],
+        [
+          "N=9 (one of LD)",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66377,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14300,
+          "monsterName": "ダークグレープマン",
+          "text": "闇を5個つなげて消すとダメージを半減、攻撃力が20倍、 4コンボ加算。闇属性の全パラメータが2.7倍。"
+        },
+        {
+          "skillId": 66385,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14298,
+          "monsterName": "シナモロールガチャドラ",
+          "text": "光を9個つなげて消すと攻撃力が10倍、固定2000万 ダメージ。[ドラゴンタイプ]の全パラメータが5.5倍。"
+        },
+        {
+          "skillId": 66150,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14252,
+          "monsterName": "王威の親子神・オシリス＆ホルス",
+          "text": "火か木を5個つなげて消すとダメージを82％軽減。 [木火同時攻撃]発動で攻撃力が130倍、回復力が2倍、3コンボ加算。"
+        }
+      ]
+    },
+    "colors_at_once": {
+      "title": "A fixed set of colours matched at once",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 892,
+      "monsters": 905,
+      "parameters": [
+        [
+          "R+B",
+          100
+        ],
+        [
+          "R+D",
+          98
+        ],
+        [
+          "R+L",
+          94
+        ],
+        [
+          "L+D",
+          77
+        ],
+        [
+          "B+D",
+          73
+        ],
+        [
+          "B+H",
+          68
+        ],
+        [
+          "B+G",
+          67
+        ],
+        [
+          "L+H",
+          65
+        ],
+        [
+          "D+L",
+          62
+        ],
+        [
+          "G+H",
+          61
+        ],
+        [
+          "R+H",
+          58
+        ],
+        [
+          "R+B+L",
+          50
+        ],
+        [
+          "G+R",
+          49
+        ],
+        [
+          "L+G",
+          49
+        ],
+        [
+          "D+H",
+          45
+        ],
+        [
+          "G+L",
+          44
+        ],
+        [
+          "G+B",
+          40
+        ],
+        [
+          "D+B",
+          39
+        ],
+        [
+          "L+B",
+          38
+        ],
+        [
+          "G+D",
+          38
+        ],
+        [
+          "B+L",
+          36
+        ],
+        [
+          "R+G",
+          36
+        ],
+        [
+          "D+R",
+          33
+        ],
+        [
+          "R+B+D",
+          33
+        ],
+        [
+          "B+R",
+          28
+        ],
+        [
+          "R+D+H",
+          27
+        ],
+        [
+          "L+R",
+          25
+        ],
+        [
+          "D+G",
+          20
+        ],
+        [
+          "G+L+D",
+          13
+        ],
+        [
+          "D+J",
+          12
+        ],
+        [
+          "B+G+D",
+          12
+        ],
+        [
+          "R+B+G",
+          12
+        ],
+        [
+          "R+L+D",
+          9
+        ],
+        [
+          "D+L+H",
+          9
+        ],
+        [
+          "D+P",
+          8
+        ],
+        [
+          "D+R+H",
+          8
+        ],
+        [
+          "L+D+H",
+          7
+        ],
+        [
+          "B+G+H",
+          6
+        ],
+        [
+          "L+J+P",
+          6
+        ],
+        [
+          "R+B+G+L",
+          5
+        ],
+        [
+          "R+G+H",
+          5
+        ],
+        [
+          "R+B+H",
+          5
+        ],
+        [
+          "R+G+L",
+          5
+        ],
+        [
+          "B+R+H",
+          5
+        ],
+        [
+          "G+D+H",
+          5
+        ],
+        [
+          "R+G+D",
+          4
+        ],
+        [
+          "B+L+H",
+          4
+        ],
+        [
+          "B+L+D",
+          4
+        ],
+        [
+          "R+L+H",
+          4
+        ],
+        [
+          "R+D+P",
+          3
+        ],
+        [
+          "R+B+G+D",
+          3
+        ],
+        [
+          "B+G+L",
+          3
+        ],
+        [
+          "D+G+H",
+          2
+        ],
+        [
+          "B+G+D+H",
+          2
+        ],
+        [
+          "R+B+J",
+          2
+        ],
+        [
+          "G+L+H",
+          2
+        ],
+        [
+          "J+P",
+          2
+        ],
+        [
+          "G+P",
+          1
+        ],
+        [
+          "L+J",
+          1
+        ],
+        [
+          "G+J",
+          1
+        ],
+        [
+          "B+J",
+          1
+        ],
+        [
+          "R+J",
+          1
+        ],
+        [
+          "R+B+L+H",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66338,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14301,
+          "monsterName": "転生ポチャッコ",
+          "text": "火回復の同時攻撃でダメージを82％軽減。[火コンボ強化]発動で 攻撃力が120倍、4コンボ加算、固定1000万ダメージ。"
+        },
+        {
+          "skillId": 66394,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14299,
+          "monsterName": "ダイヤシナモロールガチャドラ",
+          "text": "【操作時間12秒】 光回復の同時攻撃でダメージを軽減、 攻撃力が18倍、4コンボ加算。[ドラゴンタイプ]の全パラメータが3.6倍。"
+        },
+        {
+          "skillId": 66235,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14296,
+          "monsterName": "メティスまるもふびより",
+          "text": "水回復の同時攻撃でダメージを83％軽減。[水木同時攻撃]発動で 攻撃力が150倍、4コンボ加算、固定1200万ダメージ。"
+        }
+      ]
+    },
+    "same_color_combos": {
+      "title": "N+ separate combos of one colour",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 856,
+      "monsters": 865,
+      "parameters": [
+        [
+          "2 x D",
+          413
+        ],
+        [
+          "2 x R",
+          285
+        ],
+        [
+          "2 x L",
+          234
+        ],
+        [
+          "2 x G",
+          185
+        ],
+        [
+          "2 x B",
+          179
+        ],
+        [
+          "2 x H",
+          86
+        ],
+        [
+          "3 x D",
+          40
+        ],
+        [
+          "3 x L",
+          25
+        ],
+        [
+          "3 x R",
+          21
+        ],
+        [
+          "3 x G",
+          16
+        ],
+        [
+          "3 x B",
+          14
+        ],
+        [
+          "2 x M",
+          8
+        ],
+        [
+          "2 x J",
+          8
+        ],
+        [
+          "3 x H",
+          3
+        ],
+        [
+          "2 x P",
+          3
+        ],
+        [
+          "4 x D",
+          2
+        ],
+        [
+          "4 x L",
+          2
+        ],
+        [
+          "1 x D",
+          1
+        ],
+        [
+          "1 x J",
+          1
+        ],
+        [
+          "1 x L",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66330,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14303,
+          "monsterName": "転生ポムポムプリン",
+          "text": "【落ちコンなし】 [光コンボ強化]発動でダメージを激減、攻撃力が 90倍、5コンボ加算。光属性の全パラメータが1.4倍。"
+        },
+        {
+          "skillId": 66321,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14302,
+          "monsterName": "転生シナモロール",
+          "text": "[光コンボ強化]発動でダメージを軽減、攻撃力が120倍、回復力が8倍、 3コンボ加算、固定2000万ダメージ。光属性のHPが3.6倍。"
+        },
+        {
+          "skillId": 66338,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14301,
+          "monsterName": "転生ポチャッコ",
+          "text": "火回復の同時攻撃でダメージを82％軽減。[火コンボ強化]発動で 攻撃力が120倍、4コンボ加算、固定1000万ダメージ。"
+        }
+      ]
+    },
+    "rainbow": {
+      "title": "K+ colours matched at once (of a set)",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 779,
+      "monsters": 793,
+      "parameters": [
+        [
+          "K=3 of any",
+          424
+        ],
+        [
+          "K=4 of any",
+          348
+        ],
+        [
+          "K=5 of any",
+          172
+        ],
+        [
+          "K=2 of any",
+          53
+        ],
+        [
+          "K=6 of any+H (heart in set)",
+          29
+        ],
+        [
+          "K=5 of RBGLD",
+          24
+        ],
+        [
+          "K=2 of LD",
+          20
+        ],
+        [
+          "K=2 of DH (heart in set)",
+          15
+        ],
+        [
+          "K=2 of RD",
+          14
+        ],
+        [
+          "K=3 of RBGLD",
+          11
+        ],
+        [
+          "K=2 of LH (heart in set)",
+          10
+        ],
+        [
+          "K=2 of GD",
+          9
+        ],
+        [
+          "K=4 of RBGLD",
+          8
+        ],
+        [
+          "K=5 of any+H",
+          8
+        ],
+        [
+          "K=4 of RBGL",
+          8
+        ],
+        [
+          "K=2 of RB",
+          8
+        ],
+        [
+          "K=4 of any+H",
+          8
+        ],
+        [
+          "K=2 of RG",
+          8
+        ],
+        [
+          "K=2 of BG",
+          7
+        ],
+        [
+          "K=2 of BH (heart in set)",
+          7
+        ],
+        [
+          "K=2 of RL",
+          6
+        ],
+        [
+          "K=2 of GH (heart in set)",
+          6
+        ],
+        [
+          "K=3 of RBL",
+          6
+        ],
+        [
+          "K=2 of BD",
+          5
+        ],
+        [
+          "K=2 of GL",
+          5
+        ],
+        [
+          "K=3 of any+H",
+          5
+        ],
+        [
+          "K=2 of BL",
+          4
+        ],
+        [
+          "K=3 of RBG",
+          4
+        ],
+        [
+          "K=2 of RH (heart in set)",
+          3
+        ],
+        [
+          "K=3 of RGD",
+          3
+        ],
+        [
+          "K=3 of BGL",
+          3
+        ],
+        [
+          "K=3 of BGD",
+          3
+        ],
+        [
+          "K=3 of GLD",
+          2
+        ],
+        [
+          "K=3 of RDH (heart in set)",
+          2
+        ],
+        [
+          "K=4 of RBLD",
+          2
+        ],
+        [
+          "K=3 of RBLD",
+          2
+        ],
+        [
+          "K=1 of PM",
+          2
+        ],
+        [
+          "K=3 of RLD",
+          1
+        ],
+        [
+          "K=3 of GDH (heart in set)",
+          1
+        ],
+        [
+          "K=5 of RBGLH (heart in set)",
+          1
+        ],
+        [
+          "K=3 of LDH (heart in set)",
+          1
+        ],
+        [
+          "K=4 of BGLD",
+          1
+        ],
+        [
+          "K=2 of any+H",
+          1
+        ],
+        [
+          "K=4 of RBGD",
+          1
+        ],
+        [
+          "K=1 of D",
+          1
+        ],
+        [
+          "K=3 of RBD",
+          1
+        ],
+        [
+          "K=3 of RGL",
+          1
+        ],
+        [
+          "K=3 of BLH (heart in set)",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66278,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14282,
+          "monsterName": "シナモロールとフレンズ",
+          "text": "光回復の同時攻撃でダメージを82％軽減、回復力が3倍。 [光コンボ強化]発動で攻撃力が120倍、4コンボ加算、固定1000万ダメージ。"
+        },
+        {
+          "skillId": 65467,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14210,
+          "monsterName": "嵐操龍・ミストール",
+          "text": "【落ちコンなし】 4色同時攻撃でダメージを激減。[5色攻撃強化]発動で 攻撃力が180倍、5コンボ加算。[ドラゴンタイプ]のHPが1.4倍。"
+        },
+        {
+          "skillId": 65864,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14202,
+          "monsterName": "陶酔の仮装祭・テキーラギムレット",
+          "text": "【落ちコンなし】 3色同時攻撃でダメージを82％軽減。 [火水同時攻撃]発動で攻撃力が130倍、固定3000万ダメージ。"
+        }
+      ]
+    },
+    "combos": {
+      "title": "N+ combos (any colours)",
+      "support": "supported",
+      "currentGoal": "combos",
+      "leaderSkills": 638,
+      "monsters": 652,
+      "parameters": [
+        [
+          "N=7",
+          245
+        ],
+        [
+          "N=8",
+          177
+        ],
+        [
+          "N=10",
+          93
+        ],
+        [
+          "N=6",
+          91
+        ],
+        [
+          "N=9",
+          67
+        ],
+        [
+          "N=5",
+          52
+        ],
+        [
+          "N=4",
+          31
+        ],
+        [
+          "N=12",
+          7
+        ],
+        [
+          "N=15",
+          6
+        ],
+        [
+          "N=3",
+          6
+        ],
+        [
+          "N=2",
+          3
+        ],
+        [
+          "N=11",
+          2
+        ],
+        [
+          "N=14",
+          2
+        ],
+        [
+          "N=1",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66266,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14280,
+          "monsterName": "クロミとバク",
+          "text": "7コンボでダメージを半減。[木縦消し攻撃]発動で攻撃力が100倍、 回復力が8倍、3コンボ加算。木と闇属性のHPが2.8倍。"
+        },
+        {
+          "skillId": 66180,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14255,
+          "monsterName": "闇翼の蝙蝠帝・ノスフェラード",
+          "text": "[闇縦消し攻撃]発動でダメージを83％軽減、5コンボ加算。 15コンボで攻撃力が150倍。[マシンタイプ]に[バインド耐性+]を付与。"
+        },
+        {
+          "skillId": 65985,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14208,
+          "monsterName": "メイド・ヴァルキリー＆執事・ヴァンパイアデューク",
+          "text": "光属性のHPと回復力が2.8倍。7コンボでダメージを半減。 [光コンボ強化]発動で攻撃力が120倍、4コンボ加算、固定1000万ダメージ。"
+        }
+      ]
+    },
+    "heal_match": {
+      "title": "Heart match (4 hearts / hearts in a set)",
+      "support": "partial",
+      "currentGoal": "-",
+      "leaderSkills": 349,
+      "monsters": 354,
+      "parameters": [
+        [
+          "B+H",
+          68
+        ],
+        [
+          "L+H",
+          65
+        ],
+        [
+          "G+H",
+          61
+        ],
+        [
+          "R+H",
+          58
+        ],
+        [
+          "cross of 5 hearts",
+          46
+        ],
+        [
+          "D+H",
+          45
+        ],
+        [
+          "6 of any+H",
+          29
+        ],
+        [
+          "5+ connected of H",
+          29
+        ],
+        [
+          "R+D+H",
+          27
+        ],
+        [
+          "4+ connected of H",
+          20
+        ],
+        [
+          "6+ connected of RH",
+          17
+        ],
+        [
+          "2 of DH",
+          15
+        ],
+        [
+          "6+ connected of H",
+          15
+        ],
+        [
+          "3+ connected of H",
+          11
+        ],
+        [
+          "2 of LH",
+          10
+        ],
+        [
+          "D+L+H",
+          9
+        ],
+        [
+          "D+R+H",
+          8
+        ],
+        [
+          "L+D+H",
+          7
+        ],
+        [
+          "2 of BH",
+          7
+        ],
+        [
+          "2 of GH",
+          6
+        ],
+        [
+          "B+G+H",
+          6
+        ],
+        [
+          "R+G+H",
+          5
+        ],
+        [
+          "R+B+H",
+          5
+        ],
+        [
+          "B+R+H",
+          5
+        ],
+        [
+          "G+D+H",
+          5
+        ],
+        [
+          "B+L+H",
+          4
+        ],
+        [
+          "4 of BDH per match",
+          4
+        ],
+        [
+          "R+L+H",
+          4
+        ],
+        [
+          "5 of RDH per match",
+          4
+        ],
+        [
+          "2 of RH",
+          3
+        ],
+        [
+          "5 of LH per match",
+          3
+        ],
+        [
+          "5 of GDH per match",
+          3
+        ],
+        [
+          "4 of H per match",
+          3
+        ],
+        [
+          "D+G+H",
+          2
+        ],
+        [
+          "3 of RDH",
+          2
+        ],
+        [
+          "B+G+D+H",
+          2
+        ],
+        [
+          "G+L+H",
+          2
+        ],
+        [
+          "4+ connected of LH",
+          2
+        ],
+        [
+          "4 of RLH per match",
+          1
+        ],
+        [
+          "4 of RBH per match",
+          1
+        ],
+        [
+          "row of hearts",
+          1
+        ],
+        [
+          "R+B+L+H",
+          1
+        ],
+        [
+          "5+ connected of LH",
+          1
+        ],
+        [
+          "5 of GLH per match",
+          1
+        ],
+        [
+          "3 of GDH",
+          1
+        ],
+        [
+          "5 of RBGLH",
+          1
+        ],
+        [
+          "5 of GH per match",
+          1
+        ],
+        [
+          "3 of LDH",
+          1
+        ],
+        [
+          "4 of LDH per match",
+          1
+        ],
+        [
+          "5 of RBH per match",
+          1
+        ],
+        [
+          "9+ connected of H",
+          1
+        ],
+        [
+          "4+ connected of GH",
+          1
+        ],
+        [
+          "5+ connected of BGLDHJPMX",
+          1
+        ],
+        [
+          "5+ connected of RBLDHJPMX",
+          1
+        ],
+        [
+          "3 of BLH",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66338,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14301,
+          "monsterName": "転生ポチャッコ",
+          "text": "火回復の同時攻撃でダメージを82％軽減。[火コンボ強化]発動で 攻撃力が120倍、4コンボ加算、固定1000万ダメージ。"
+        },
+        {
+          "skillId": 66394,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14299,
+          "monsterName": "ダイヤシナモロールガチャドラ",
+          "text": "【操作時間12秒】 光回復の同時攻撃でダメージを軽減、 攻撃力が18倍、4コンボ加算。[ドラゴンタイプ]の全パラメータが3.6倍。"
+        },
+        {
+          "skillId": 66235,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14296,
+          "monsterName": "メティスまるもふびより",
+          "text": "水回復の同時攻撃でダメージを83％軽減。[水木同時攻撃]発動で 攻撃力が150倍、4コンボ加算、固定1200万ダメージ。"
+        }
+      ]
+    },
+    "tpa": {
+      "title": "Exactly 4 orbs (two-pronged attack)",
+      "support": "supported",
+      "currentGoal": "tpa",
+      "leaderSkills": 170,
+      "monsters": 170,
+      "parameters": [
+        [
+          "own",
+          111
+        ],
+        [
+          "any+H",
+          14
+        ],
+        [
+          "G",
+          8
+        ],
+        [
+          "L",
+          5
+        ],
+        [
+          "LD",
+          4
+        ],
+        [
+          "BG",
+          4
+        ],
+        [
+          "BDH",
+          4
+        ],
+        [
+          "GD",
+          4
+        ],
+        [
+          "R",
+          3
+        ],
+        [
+          "H",
+          3
+        ],
+        [
+          "RG",
+          3
+        ],
+        [
+          "RBL",
+          2
+        ],
+        [
+          "BL",
+          2
+        ],
+        [
+          "RLH",
+          1
+        ],
+        [
+          "RBH",
+          1
+        ],
+        [
+          "RL",
+          1
+        ],
+        [
+          "GL",
+          1
+        ],
+        [
+          "LDH",
+          1
+        ],
+        [
+          "D",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66356,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14293,
+          "monsterName": "ゼウスしろうさ＆ヘラくろうさ（シュガーバニーズ）",
+          "text": "[2体攻撃]発動でダメージを82％軽減、攻撃力が80倍、3コンボ 加算、固定2000万ダメージ。HP満タン時に攻撃力が3倍。"
+        },
+        {
+          "skillId": 66253,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14290,
+          "monsterName": "ニケウサハナ",
+          "text": "[2体攻撃]発動でダメージを82％軽減、攻撃力が100倍、 2コンボ加算、固定2000万ダメージ。"
+        },
+        {
+          "skillId": 65961,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14220,
+          "monsterName": "極醒の葵風龍喚士・カエデ",
+          "text": "闇回復の同時攻撃でダメージを半減。[2体攻撃]発動で攻撃力が 100倍、5コンボ加算。闇属性のHPが2.8倍、回復力が5倍。"
+        }
+      ]
+    },
+    "lshape": {
+      "title": "L of 5",
+      "support": "supported",
+      "currentGoal": "lshape",
+      "leaderSkills": 125,
+      "monsters": 126,
+      "parameters": [
+        [
+          "own",
+          50
+        ],
+        [
+          "any+H",
+          48
+        ],
+        [
+          "B",
+          24
+        ],
+        [
+          "R",
+          5
+        ],
+        [
+          "LD",
+          4
+        ],
+        [
+          "H",
+          4
+        ],
+        [
+          "RD",
+          4
+        ],
+        [
+          "G",
+          4
+        ],
+        [
+          "D",
+          3
+        ],
+        [
+          "BG",
+          2
+        ],
+        [
+          "RL",
+          2
+        ],
+        [
+          "RBD",
+          1
+        ],
+        [
+          "BGLDHJPMX",
+          1
+        ],
+        [
+          "RBGLHJPMX",
+          1
+        ],
+        [
+          "J",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 65821,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14187,
+          "monsterName": "九尾の仮装夜行・リュウメイ",
+          "text": "光を5個つなげて消すとダメージを83％軽減。 [L字消し攻撃]発動で攻撃力が200倍、5コンボ加算。"
+        },
+        {
+          "skillId": 65457,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14141,
+          "monsterName": "耀雪の雪女・ユキネ",
+          "text": "【7×6マス】 [L字消し攻撃]発動でダメージを81％軽減、攻撃力が60倍、 回復力が2倍、2コンボ加算、固定1500万ダメージ。"
+        },
+        {
+          "skillId": 64282,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13996,
+          "monsterName": "L.L.＆C.C.",
+          "text": "木を5個つなげて消すとダメージを82％軽減。[L字消し攻撃]発動で攻撃力が 100倍、回復力が2倍、3コンボ加算、固定1800万ダメージ。"
+        }
+      ]
+    },
+    "blob_exact": {
+      "title": "Exactly N orbs of one colour (N != 4)",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 114,
+      "monsters": 115,
+      "parameters": [
+        [
+          "N=5",
+          79
+        ],
+        [
+          "N=6",
+          24
+        ],
+        [
+          "N=9",
+          8
+        ],
+        [
+          "N=10",
+          3
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 57223,
+          "monstersUsingSkill": 1,
+          "monsterNo": 12972,
+          "monsterName": "夕饗の神王妃・ヘラ -LUNA-",
+          "text": "火闇回復の同時攻撃でダメージを82％軽減、攻撃力が36倍。 ドロップの5個消し1個につき攻撃力と回復力が1.3倍、1コンボ加算。"
+        },
+        {
+          "skillId": 56532,
+          "monstersUsingSkill": 1,
+          "monsterNo": 12872,
+          "monsterName": "聖人会議長ラウフェイ",
+          "text": "9コンボでダメージを81％軽減、攻撃力が50倍、固定900万 ダメージ。水の5個消し1個につき回復力が1.5倍、2コンボ加算。"
+        },
+        {
+          "skillId": 51331,
+          "monstersUsingSkill": 1,
+          "monsterNo": 12264,
+          "monsterName": "玄武星の超越神・メイメイ",
+          "text": "木、光、闇の5個消し1個につき攻撃力が4倍、1コンボ加算、 固定400万ダメージ。[神タイプ]のHPと回復力が5.3倍。"
+        }
+      ]
+    },
+    "cross": {
+      "title": "Cross of 5 (colour)",
+      "support": "supported",
+      "currentGoal": "cross",
+      "leaderSkills": 87,
+      "monsters": 89,
+      "parameters": [
+        [
+          "own",
+          40
+        ],
+        [
+          "RD",
+          14
+        ],
+        [
+          "LD",
+          8
+        ],
+        [
+          "R",
+          7
+        ],
+        [
+          "RBG",
+          6
+        ],
+        [
+          "D",
+          6
+        ],
+        [
+          "B",
+          5
+        ],
+        [
+          "L",
+          5
+        ],
+        [
+          "BD",
+          4
+        ],
+        [
+          "RGL",
+          4
+        ],
+        [
+          "RB",
+          3
+        ],
+        [
+          "G",
+          3
+        ],
+        [
+          "BG",
+          2
+        ],
+        [
+          "any",
+          2
+        ],
+        [
+          "GD",
+          2
+        ],
+        [
+          "BLD",
+          2
+        ],
+        [
+          "any+H",
+          1
+        ],
+        [
+          "RBD",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 65275,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14118,
+          "monsterName": "トランプ迷宮の主・ドラウンジョーカー",
+          "text": "[十字消し攻撃][闇コンボ強化]の同時発動でダメージを半減、攻撃力が180倍、 2コンボ加算、固定2800万ダメージ。[悪魔タイプ]のHPが2.8倍。"
+        },
+        {
+          "skillId": 64481,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14012,
+          "monsterName": "端居の箏龍楽士・ミナカ",
+          "text": "[十字消し攻撃]発動でダメージを激減、攻撃力が150倍、4コンボ加算、 固定1000万ダメージ。火属性のHPが1.3倍、回復力が5倍。"
+        },
+        {
+          "skillId": 64436,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14008,
+          "monsterName": "バカンスの女神・ヘスティア",
+          "text": "【操作時間12秒】 [十字消し攻撃]発動でダメージを83％軽減、 攻撃力が150倍、3コンボ加算、固定2000万ダメージ。"
+        }
+      ]
+    },
+    "square": {
+      "title": "3x3 square (void damage piercer)",
+      "support": "supported",
+      "currentGoal": "square",
+      "leaderSkills": 66,
+      "monsters": 66,
+      "parameters": [
+        [
+          "own",
+          66
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 63290,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13872,
+          "monsterName": "潤香執事・カシアン",
+          "text": "【7×6マス】 闇属性の全パラメータが5.3倍。 [ダメージ無効貫通攻撃]を発動するたびに攻撃力が7倍、固定1000万ダメージ。"
+        },
+        {
+          "skillId": 63053,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13848,
+          "monsterName": "モーニングコールメイド・テミス",
+          "text": "[ダメージ無効貫通攻撃]発動でダメージを22％軽減、攻撃力が33倍、 固定3333万ダメージ。[バランスタイプ]の全パラメータが4.4倍。"
+        },
+        {
+          "skillId": 63092,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13844,
+          "monsterName": "アイロン掛けのメイド・フリッグ",
+          "text": "木を5個つなげて消すとダメージを82％軽減。 [ダメージ無効貫通攻撃]発動で攻撃力が100倍、回復力が2倍、5コンボ加算。"
+        }
+      ]
+    },
+    "row": {
+      "title": "Full row of one colour",
+      "support": "supported",
+      "currentGoal": "row",
+      "leaderSkills": 63,
+      "monsters": 64,
+      "parameters": [
+        [
+          "D",
+          28
+        ],
+        [
+          "R",
+          17
+        ],
+        [
+          "L",
+          12
+        ],
+        [
+          "B",
+          7
+        ],
+        [
+          "G",
+          6
+        ],
+        [
+          "H",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 65201,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14110,
+          "monsterName": "ハート龍・セイハーツ",
+          "text": "火を5個つなげて消すとダメージを82％軽減。[火列強化]発動で 攻撃力が150倍、3コンボ加算、固定2200万ダメージ。"
+        },
+        {
+          "skillId": 65120,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14101,
+          "monsterName": "【ハートQ】の女王・ハーティア",
+          "text": "[火列強化]発動でダメージを激減、攻撃力が150倍、回復力が2倍、 3コンボ加算、固定2500万ダメージ。火属性のHPが1.4倍。"
+        },
+        {
+          "skillId": 64886,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14072,
+          "monsterName": "バンビエッタ・バスターバイン",
+          "text": "[火列強化]発動でダメージを半減、攻撃力が80倍、 5コンボ加算。火属性のHPが2.7倍、回復力が9倍。"
+        }
+      ]
+    },
+    "heart_cross": {
+      "title": "Cross of 5 hearts",
+      "support": "supported",
+      "currentGoal": "cross",
+      "leaderSkills": 28,
+      "monsters": 30,
+      "parameters": [
+        [
+          "-",
+          46
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 63697,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13909,
+          "monsterName": "極醒の黄龍契士・シルヴィ",
+          "text": "回復の5個十字消しでダメージを82％軽減、回復力が3倍。 [2体攻撃]発動で攻撃力が120倍、3コンボ加算、固定1800万ダメージ。"
+        },
+        {
+          "skillId": 63065,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13838,
+          "monsterName": "ぐうたらメイド・アマテラスオオカミ",
+          "text": "回復の5個十字消しでダメージを半減、攻撃力が90倍、回復力が 9倍。8コンボで固定3000万ダメージ。光属性のHPが2.8倍。"
+        },
+        {
+          "skillId": 63039,
+          "monstersUsingSkill": 1,
+          "monsterNo": 13834,
+          "monsterName": "時間厳守のメイド・ミル",
+          "text": "回復の5個十字消しでダメージを83％軽減。[2体攻撃]発動で 攻撃力が100倍、3コンボ加算、固定2000万ダメージ。"
+        }
+      ]
+    },
+    "tshape": {
+      "title": "T of 5",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 24,
+      "monsters": 24,
+      "parameters": [
+        [
+          "own",
+          24
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 65216,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14113,
+          "monsterName": "ダイヤ龍・ダイアモス",
+          "text": "光を5個つなげて消すとダメージを82％軽減。[T字消し攻撃]発動で 攻撃力が170倍、2コンボ加算、固定3000万ダメージ。"
+        },
+        {
+          "skillId": 65153,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14098,
+          "monsterName": "【ダイヤK】の王者・ダイン",
+          "text": "光を5個つなげて消すとダメージを83％軽減。[T字消し攻撃]発動で 攻撃力が170倍、4コンボ加算、固定1400万ダメージ。"
+        },
+        {
+          "skillId": 64955,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14092,
+          "monsterName": "聖文字“B”・ユーグラム・ハッシュヴァルト",
+          "text": "[T字消し攻撃]発動でダメージを82％軽減、攻撃力が120倍、3コンボ 加算、固定1800万ダメージ。光属性の回復力が2倍。"
+        }
+      ]
+    },
+    "column": {
+      "title": "Full column of one colour",
+      "support": "supported",
+      "currentGoal": "column",
+      "leaderSkills": 14,
+      "monsters": 14,
+      "parameters": [
+        [
+          "G",
+          6
+        ],
+        [
+          "D",
+          6
+        ],
+        [
+          "B",
+          2
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 66266,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14280,
+          "monsterName": "クロミとバク",
+          "text": "7コンボでダメージを半減。[木縦消し攻撃]発動で攻撃力が100倍、 回復力が8倍、3コンボ加算。木と闇属性のHPが2.8倍。"
+        },
+        {
+          "skillId": 66180,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14255,
+          "monsterName": "闇翼の蝙蝠帝・ノスフェラード",
+          "text": "[闇縦消し攻撃]発動でダメージを83％軽減、5コンボ加算。 15コンボで攻撃力が150倍。[マシンタイプ]に[バインド耐性+]を付与。"
+        },
+        {
+          "skillId": 66091,
+          "monstersUsingSkill": 1,
+          "monsterNo": 14246,
+          "monsterName": "楼蘭",
+          "text": "【操作時間12秒】 闇属性のHPと回復力が5.6倍。 [闇縦消し攻撃]発動で攻撃力が100倍、回復力が3倍、4コンボ加算。"
+        }
+      ]
+    },
+    "enhanced5": {
+      "title": "5 orbs including an enhanced orb",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 12,
+      "monsters": 13,
+      "parameters": [
+        [
+          "-",
+          12
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 46839,
+          "monstersUsingSkill": 2,
+          "monsterNo": 11638,
+          "monsterName": "深紅の宝石姫・シルクチャーミーキティ",
+          "text": "【7×6マス】 7コンボでダメージを77％軽減。 強化ドロップを含めて5個消した属性の攻撃力が40倍。"
+        },
+        {
+          "skillId": 37690,
+          "monstersUsingSkill": 1,
+          "monsterNo": 10321,
+          "monsterName": "ウルトラマンレグロス(アーリースタイル)",
+          "text": "火属性のHPが4.8倍。火の2コンボで4コンボ加算。 強化ドロップを含めて5個消した属性の攻撃力が40倍。"
+        },
+        {
+          "skillId": 31490,
+          "monstersUsingSkill": 1,
+          "monsterNo": 9249,
+          "monsterName": "山の女神パールヴァティー",
+          "text": "3色同時攻撃でダメージを65％軽減、3コンボ加算。 強化ドロップを含めて5個消した属性の攻撃力が22倍。"
+        }
+      ]
+    },
+    "combo_pattern": {
+      "title": "Mixed combo pattern (repeated colour + other colours)",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 12,
+      "monsters": 12,
+      "parameters": [
+        [
+          "4 of D+D+R+R",
+          4
+        ],
+        [
+          "3 of L+L+B",
+          4
+        ],
+        [
+          "3 of L+L+D",
+          3
+        ],
+        [
+          "3 of B+B+L",
+          3
+        ],
+        [
+          "4 of D+D+B+B",
+          2
+        ],
+        [
+          "3 of B+B+L+L",
+          2
+        ],
+        [
+          "3 of R+R+D+D",
+          2
+        ],
+        [
+          "3 of D+D+R",
+          2
+        ],
+        [
+          "3 of G+D+D",
+          2
+        ],
+        [
+          "1 of G+D",
+          2
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 49800,
+          "monstersUsingSkill": 1,
+          "monsterNo": 12008,
+          "monsterName": "U-20日本代表・士道 龍聖",
+          "text": "闇闇火火の同時攻撃でダメージを80％軽減、攻撃力が50倍、 5コンボ加算。[攻撃タイプ]に[バインド耐性+]を付与。"
+        },
+        {
+          "skillId": 49796,
+          "monstersUsingSkill": 1,
+          "monsterNo": 12007,
+          "monsterName": "士道 龍聖",
+          "text": "闇闇火火の同時攻撃でダメージを激減、攻撃力が30倍、 2コンボ加算。[攻撃タイプ]に[バインド耐性+]を付与。"
+        },
+        {
+          "skillId": 46217,
+          "monstersUsingSkill": 1,
+          "monsterNo": 11507,
+          "monsterName": "シャガルマガラ",
+          "text": "光光闇の同時攻撃でダメージを80％軽減、攻撃力が45倍、 3コンボ加算、固定500万ダメージ。"
+        }
+      ]
+    },
+    "min_erase": {
+      "title": "Cannot erase N or fewer orbs (every match must be larger)",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 9,
+      "monsters": 9,
+      "parameters": [
+        [
+          "N=4",
+          7
+        ],
+        [
+          "N=5",
+          2
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 35102,
+          "monstersUsingSkill": 1,
+          "monsterNo": 9927,
+          "monsterName": "冥界龍・ハーデス＝ドラゴン",
+          "text": "闇を9個つなげて消すと攻撃力が40倍、3コンボ加算、 固定1ダメージ。 ドロップを3個以下で消せない がHPが5倍。"
+        },
+        {
+          "skillId": 34945,
+          "monstersUsingSkill": 1,
+          "monsterNo": 9884,
+          "monsterName": "闇遊戯＆三幻神",
+          "text": "ドロップを3個以下で消せない が、全パラメータが5倍。 闇を5個つなげて消すと攻撃力が5倍。操作時間が3秒延長。"
+        },
+        {
+          "skillId": 35114,
+          "monstersUsingSkill": 1,
+          "monsterNo": 9825,
+          "monsterName": "冥翔の大魔女・ネレ",
+          "text": "【7×6マス】ドロップを3個以下で消せない がHPが4.2倍。 闇を6個つなげて消すと攻撃力が25倍。"
+        }
+      ]
+    },
+    "combos_exact": {
+      "title": "Exactly N combos",
+      "support": "unsupported",
+      "currentGoal": "-",
+      "leaderSkills": 3,
+      "monsters": 3,
+      "parameters": [
+        [
+          "N=7",
+          2
+        ],
+        [
+          "N=10",
+          1
+        ]
+      ],
+      "examples": [
+        {
+          "skillId": 23564,
+          "monstersUsingSkill": 1,
+          "monsterNo": 7791,
+          "monsterName": "昂陽の炎柱神・アメン",
+          "text": "【落ちコンなし／操作時間7秒】 火属性のHPと回復力が5倍。 10コンボちょうどで攻撃力が500倍。"
+        },
+        {
+          "skillId": 18065,
+          "monstersUsingSkill": 1,
+          "monsterNo": 6384,
+          "monsterName": "大罪の化身・ゴルフェイス",
+          "text": "【落ちコンなし】 7コンボちょうどで攻撃力が2倍。 総HPが半減、光属性の攻撃力が12倍。"
+        },
+        {
+          "skillId": 18057,
+          "monstersUsingSkill": 1,
+          "monsterNo": 5847,
+          "monsterName": "滅亡の化身・ゴルケイオス",
+          "text": "【落ちコンなし】 7コンボちょうどで攻撃力が2倍。 総HPが半減、闇属性の攻撃力が13倍。"
+        }
+      ]
+    }
+  },
+  "otherConditions": {
+    "passive stats": {
+      "leaderSkills": 2114,
+      "monsters": 2688
+    },
+    "7x6 board": {
+      "leaderSkills": 459,
+      "monsters": 468
+    },
+    "extra move time": {
+      "leaderSkills": 332,
+      "monsters": 340
+    },
+    "fixed move time": {
+      "leaderSkills": 284,
+      "monsters": 286
+    },
+    "team composition": {
+      "leaderSkills": 177,
+      "monsters": 178
+    },
+    "HP threshold": {
+      "leaderSkills": 130,
+      "monsters": 134
+    },
+    "rank exp": {
+      "leaderSkills": 114,
+      "monsters": 116
+    },
+    "drop rate": {
+      "leaderSkills": 115,
+      "monsters": 115
+    },
+    "no skyfall": {
+      "leaderSkills": 70,
+      "monsters": 70
+    },
+    "poison disabled": {
+      "leaderSkills": 47,
+      "monsters": 48
+    },
+    "skill used": {
+      "leaderSkills": 44,
+      "monsters": 47
+    },
+    "grants awakening": {
+      "leaderSkills": 45,
+      "monsters": 45
+    },
+    "no skyfall / orbs remaining": {
+      "leaderSkills": 37,
+      "monsters": 38
+    },
+    "autoheal": {
+      "leaderSkills": 33,
+      "monsters": 33
+    },
+    "coin rate": {
+      "leaderSkills": 29,
+      "monsters": 30
+    },
+    "heal amount": {
+      "leaderSkills": 21,
+      "monsters": 23
+    },
+    "drop/plus rate": {
+      "leaderSkills": 18,
+      "monsters": 18
+    },
+    "skyfall prediction": {
+      "leaderSkills": 17,
+      "monsters": 17
+    },
+    "skills used per turn": {
+      "leaderSkills": 15,
+      "monsters": 15
+    },
+    "resolve": {
+      "leaderSkills": 7,
+      "monsters": 7
+    },
+    "reduced HP": {
+      "leaderSkills": 6,
+      "monsters": 6
+    },
+    "counterattack": {
+      "leaderSkills": 5,
+      "monsters": 5
+    },
+    "reduced RCV": {
+      "leaderSkills": 1,
+      "monsters": 1
+    }
+  },
+  "unmapped": {}
+}
