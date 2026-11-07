@@ -83,8 +83,9 @@ cd android
    recordings (e.g. A ×1 → B ×3 → C ×2) into one playable, exportable script. **How to use** opens
    the in-app guide; **Playground** is a test screen; scripts import/export as JSON.
 5. **PAD solver** (Android 11+). Main screen → *PAD solver* → **Edit PAD setup**: goals (row,
-   column, 3x3, cross, L, 4 in a line of a colour, or at least N combos; all must be met), **drag
-   time per move** (default 150 ms; raise it if the game misses cells), diagonal moves, max moves,
+   column, 3x3, cross, L, 4 in a line, T of a colour, at least N combos, at least (or, with
+   "exactly", exactly) N connected orbs of a colour, or combos of at least N different colours;
+   all must be met), **drag time per move** (default 150 ms; raise it if the game misses cells), diagonal moves, max moves,
    search time, board size, and whether to drag the best path when the goals cannot be met.
    **SOLVE** on the panel takes a screenshot, waits until the board stops moving, reads it, solves
    it and drags the path. While recording, SOLVE is saved as a `solve` step (not the drag): e.g.

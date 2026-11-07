@@ -1,8 +1,10 @@
 package dev.quickreplay.pad
 
 /**
- * A goal: a combo shape of one colour ([Shape]) or a minimum number of combos ([Combos]).
- * Same model and JSON shape as the browser solver (`{type, color}` / `{type: "combos", count}`).
+ * A goal: a combo shape of one colour ([Shape]), a minimum number of combos ([Combos]), one
+ * combo of a colour with at least `min` connected orbs ([Blob]) or combos of at least `count`
+ * distinct colours ([Colors]). Same model and JSON shape as the browser solver (`{type, color}` /
+ * `{type: "combos", count}` / `{type: "blob", color, min, max?}` / `{type: "colors", count, of?}`).
  */
 sealed interface Goal {
     val type: String
@@ -24,6 +26,79 @@ sealed interface Goal {
 
         override val type: String get() = "combos"
         override val label: String get() = "$count+ combos"
+    }
+
+    /**
+     * One combo of [color] with at least [min] and at most [max] connected orbs ([max] null: no
+     * upper bound; [max] == [min]: exactly that many); a repeated goal needs another combo. [min]
+     * and [max] are at most the largest board here; [PadSetup] and [Solver.solve] check the real board.
+     */
+    data class Blob(val color: Int, val min: Int, val max: Int? = null) : Goal {
+        init {
+            require(color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
+            require(min >= MIN) { "Blob size must be >= $MIN" }
+            require(min <= Board.MAX_SIZE * Board.MAX_SIZE) { "Blob size must be at most ${Board.MAX_SIZE * Board.MAX_SIZE}" }
+            if (max != null) {
+                require(max >= min) { "Blob max must be >= min ($min)" }
+                require(max <= Board.MAX_SIZE * Board.MAX_SIZE) { "Blob max must be at most ${Board.MAX_SIZE * Board.MAX_SIZE}" }
+            }
+        }
+
+        override val type: String get() = "blob"
+        override val label: String
+            get() = when (max) {
+                null -> "$min+ ${Orbs.NAMES[color]} connected"
+                min -> "exactly $min ${Orbs.NAMES[color]}"
+                else -> "$min-$max ${Orbs.NAMES[color]} connected"
+            }
+
+        /** True when a combo of [size] orbs (of the colour) meets this goal. */
+        fun accepts(size: Int): Boolean = size >= min && (max == null || size <= max)
+
+        /** Throws [IllegalArgumentException] when the blob cannot fit on a [rows] x [cols] board. */
+        fun checkSize(rows: Int, cols: Int) {
+            require(min <= rows * cols) { "Blob size must be at most ${rows * cols} on a ${cols}x$rows board" }
+            if (max != null) require(max <= rows * cols) { "Blob max must be at most ${rows * cols} on a ${cols}x$rows board" }
+        }
+
+        companion object {
+            /** A combo has at least 3 orbs. */
+            const val MIN = 3
+        }
+    }
+
+    /**
+     * Combos of at least [count] distinct colours of [set] (orb codes of R, B, G, L, D, H; default
+     * the 5 attributes). Only membership matters: the order of [set] is kept for the JSON.
+     */
+    data class Colors(val count: Int, val set: List<Int> = DEFAULT_SET) : Goal {
+        init {
+            require(count in 1..Orbs.ATTRIBUTES) { "Colour count must be from 1 to ${Orbs.ATTRIBUTES}" }
+            require(set.isNotEmpty() && set.toSet().size == set.size && set.all { it in 0 until Orbs.ATTRIBUTES }) {
+                "Colour set must be a non-empty list of distinct colours R, B, G, L, D, H"
+            }
+            require(count <= set.size) { "Colour count must be at most ${set.size}, the colours in the set" }
+        }
+
+        override val type: String get() = "colors"
+
+        /** Bit mask of [set]. */
+        val mask: Int get() = set.fold(0) { m, color -> m or (1 shl color) }
+
+        /** "3+ colours", or "2+ colours of Water, Heart" for a set other than the 5 attributes. */
+        override val label: String
+            get() {
+                val mask = mask
+                if (mask == DEFAULT_MASK) return "$count+ colours"
+                val names = (0 until Orbs.ATTRIBUTES).filter { mask and (1 shl it) != 0 }.map { Orbs.NAMES[it] }
+                return "$count+ colours of ${names.joinToString(", ")}"
+            }
+
+        companion object {
+            /** R, B, G, L, D. */
+            val DEFAULT_SET = listOf(0, 1, 2, 3, 4)
+            private const val DEFAULT_MASK = 0b11111
+        }
     }
 }
 
@@ -105,6 +180,18 @@ object Solver {
                     val max = counts.sumOf { it / 3 }
                     if (goal.count > max) reasons += "${goal.label}: at most $max combos are possible on this board"
                 }
+                // A plain sum, like solver.js: a blob shares orbs with another goal only as its combo.
+                is Goal.Blob -> need[goal.color] += goal.min
+                // Each counted colour needs one combo of 3+ orbs; checked on its own, like Combos.
+                is Goal.Colors -> {
+                    val mask = goal.mask
+                    val letters = (0 until Orbs.ATTRIBUTES).filter { mask and (1 shl it) != 0 && counts[it] >= 3 }.map { Orbs.LETTERS[it] }
+                    val k = letters.size
+                    if (k < goal.count) {
+                        reasons += "${goal.label}: only $k ${if (k == 1) "colour has" else "colours have"} 3 or more orbs" +
+                            (if (k > 0) " (${letters.joinToString(", ")})" else "") + ", the goal needs ${goal.count}"
+                    }
+                }
                 is Goal.Shape -> {
                     if (!Shapes.fits(goal.type, board.rows, board.cols)) {
                         reasons += "${goal.label}: does not fit on a ${board.cols}x${board.rows} board"
@@ -134,6 +221,8 @@ object Solver {
         now: () -> Long = { System.nanoTime() / 1_000_000 },
     ): SolveResult {
         val started = now()
+        // Like normalizeGoals(goals, size) in JS: a blob larger than the board is an invalid goal.
+        for (goal in goals) if (goal is Goal.Blob) goal.checkSize(board.rows, board.cols)
         val labels = goals.map { it.label }
         val reasons = checkFeasibility(board, goals)
         if (reasons.isNotEmpty()) {
@@ -385,6 +474,8 @@ object Solver {
         private class Group(
             val type: String,
             val color: Int,
+            /** Blob goal of the group; null for other goals. */
+            val blob: Goal.Blob?,
             val indices: MutableList<Int>,
             val placements: List<Shapes.Placement>,
             val borders: List<IntArray>,
@@ -396,6 +487,16 @@ object Solver {
 
         private val groups = LinkedHashMap<String, Group>()
 
+        /** Colour bit mask of each Colors goal (0 for other goals). */
+        private val masks = IntArray(goals.size) { (goals[it] as? Goal.Colors)?.mask ?: 0 }
+
+        /** Number of distinct colours of [mask] among the combos. */
+        private fun colorCount(combos: List<Combo>, mask: Int): Int {
+            var seen = 0
+            for (combo in combos) seen = seen or ((1 shl combo.color) and mask)
+            return Integer.bitCount(seen)
+        }
+
         init {
             for (i in 0 until n) {
                 for (j in 0 until n) {
@@ -404,13 +505,29 @@ object Solver {
                     dist[i * n + j] = if (diagonals) maxOf(dr, dc) else dr + dc
                 }
             }
+            // Goals that share type and colour (and blob size range) need distinct combos; group them.
+            // Colors goals are about the whole turn, like Combos: one group, each goal checked alone.
             goals.forEachIndexed { index, goal ->
-                val k = if (goal is Goal.Shape) "${goal.type}:${goal.color}" else "combos"
+                val k = when (goal) {
+                    is Goal.Shape -> "${goal.type}:${goal.color}"
+                    is Goal.Blob -> "blob:${goal.color}:${goal.min}:${goal.max ?: ""}"
+                    is Goal.Combos -> "combos"
+                    is Goal.Colors -> "colors"
+                }
                 val group = groups.getOrPut(k) {
-                    val placements = if (goal is Goal.Shape) Shapes.placements(goal.type, rows, cols) else emptyList()
+                    val placements = when (goal) {
+                        is Goal.Shape -> Shapes.placements(goal.type, rows, cols)
+                        is Goal.Blob -> Shapes.blobPlacements(goal.min, rows, cols, goal.max ?: Int.MAX_VALUE)
+                        is Goal.Combos, is Goal.Colors -> emptyList()
+                    }
                     Group(
                         goal.type,
-                        (goal as? Goal.Shape)?.color ?: -1,
+                        when (goal) {
+                            is Goal.Shape -> goal.color
+                            is Goal.Blob -> goal.color
+                            is Goal.Combos, is Goal.Colors -> -1
+                        },
+                        goal as? Goal.Blob,
                         ArrayList(),
                         placements,
                         placements.map { p -> if (p.exact) borderOf(p.cells) else IntArray(0) },
@@ -427,15 +544,21 @@ object Solver {
             for (group in groups.values) {
                 val available = available(group, combos)
                 group.indices.forEachIndexed { k, index ->
-                    met[index] = if (group.type == "combos") combos.size >= (goals[index] as Goal.Combos).count else k < available
+                    met[index] = when (group.type) {
+                        "combos" -> combos.size >= (goals[index] as Goal.Combos).count
+                        "colors" -> colorCount(combos, masks[index]) >= (goals[index] as Goal.Colors).count
+                        else -> k < available
+                    }
                 }
             }
             return met
         }
 
         private fun available(group: Group, combos: List<Combo>): Int {
-            if (group.type == "combos") return combos.size
-            return combos.count { it.color == group.color && Shapes.has(group.type, it.cells, rows, cols) }
+            if (group.type == "combos" || group.type == "colors") return combos.size
+            return combos.count {
+                it.color == group.color && (group.blob?.accepts(it.cells.size) ?: Shapes.has(group.type, it.cells, rows, cols))
+            }
         }
 
         fun score(cells: IntArray): Double {
@@ -452,6 +575,24 @@ object Solver {
                             met++
                         } else {
                             score += COMBO_GOAL_WEIGHT * combos.size / want
+                            if (!pairsAdded) {
+                                score += PAIR_WEIGHT * pairs(cells)
+                                pairsAdded = true
+                            }
+                        }
+                    }
+                    continue
+                }
+                if (group.type == "colors") {
+                    // Like Combos: the share of the colours reached, plus touching pairs (once per board).
+                    for (index in group.indices) {
+                        val want = (goals[index] as Goal.Colors).count
+                        val have = colorCount(combos, masks[index])
+                        if (have >= want) {
+                            score += MET_SCORE
+                            met++
+                        } else {
+                            score += COMBO_GOAL_WEIGHT * have / want
                             if (!pairsAdded) {
                                 score += PAIR_WEIGHT * pairs(cells)
                                 pairsAdded = true

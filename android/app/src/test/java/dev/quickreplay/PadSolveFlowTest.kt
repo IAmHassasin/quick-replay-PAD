@@ -170,6 +170,89 @@ class PadSolveFlowTest {
         assertFormatError(json.replace(Regex("\"pad\": \\{[^}]*\\[[^]]*][^}]*\\}"), "\"pad\": 3"), "pad must be an object")
     }
 
+    @Test
+    fun scriptJsonKeepsBlobGoals() {
+        val setup = PadSetup(goals = listOf(Goal.Blob(Orbs.code('R'), 5), Goal.Blob(Orbs.code('R'), 5), Goal.Blob(Orbs.code('H'), 30)))
+        val script = Script("blob", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"min\": 5"))
+        assertTrue(json, json.contains("\"type\": \"blob\""))
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("5+ Fire connected + 5+ Fire connected + 30+ Heart connected · 150 ms/move", setup.summary())
+
+        val min = "\"min\": 30"
+        assertFormatError(json.replace(min, "\"min\": 2"), "pad: pad.goals[2].min must be an integer >= 3")
+        assertFormatError(json.replace(min, "\"min\": 3.5"), "pad: pad.goals[2].min must be an integer >= 3")
+        assertFormatError(json.replace(min, "\"min\": \"30\""), "pad: pad.goals[2].min must be an integer >= 3")
+        assertFormatError(json.replace(min, "\"size\": 30"), "pad: pad.goals[2].min must be an integer >= 3")
+        // At most rows x cols orbs: 30 on the default 6x5 board.
+        assertFormatError(json.replace(min, "\"min\": 31"), "pad: Blob size must be at most 30 on a 6x5 board")
+        assertFormatError(json.replace("\"color\": \"H\"", "\"color\": \"J\""), "pad: pad.goals[2].color must be one of R, B, G, L, D, H")
+        // A 7x6 board allows 42.
+        val big = PadSetup(goals = listOf(Goal.Blob(Orbs.code('H'), 42)), rows = 6, cols = 7)
+        assertEquals(big, PadSetup.fromJson(big.toJson()))
+    }
+
+    @Test
+    fun scriptJsonKeepsBlobMax() {
+        val setup = PadSetup(
+            goals = listOf(Goal.Blob(Orbs.code('D'), 5, 5), Goal.Blob(Orbs.code('R'), 3, 6), Goal.Blob(Orbs.code('G'), 4)),
+        )
+        val script = Script("blob max", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"max\": 5"))
+        // No max key for a blob without max.
+        assertEquals(2, Regex("\"max\"").findAll(json).count())
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("exactly 5 Dark + 3-6 Fire connected + 4+ Wood connected · 150 ms/move", setup.summary())
+
+        // Only goal 0 (exactly 5 Dark) has max 5.
+        val exact = "\"max\": 5"
+        val error = "pad: pad.goals[0].max must be an integer >= pad.goals[0].min"
+        for (bad in listOf("4", "5.5", "\"5\"", "null")) assertFormatError(json.replace(exact, "\"max\": $bad"), error)
+        // At most rows x cols orbs: 30 on the default 6x5 board.
+        assertFormatError(json.replace(exact, "\"max\": 31"), "pad: Blob max must be at most 30 on a 6x5 board")
+    }
+
+    @Test
+    fun scriptJsonKeepsColorsGoals() {
+        val custom = Goal.Colors(2, listOf(Orbs.code('H'), Orbs.code('B')))
+        val setup = PadSetup(goals = listOf(Goal.Colors(3), custom))
+        val script = Script("colors", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"type\": \"colors\""))
+        assertTrue(json, json.contains("\"count\": 3"))
+        // The default set is not written; another set keeps its order.
+        assertEquals(json, 1, Regex("\"of\"").findAll(json).count())
+        assertTrue(json, Regex("\"of\": \\[\\s*\"H\",\\s*\"B\"\\s*]").containsMatchIn(json))
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("3+ colours + 2+ colours of Water, Heart · 150 ms/move", setup.summary())
+        // An explicit default set in another order is kept as written.
+        val reordered = PadSetup(goals = listOf(Goal.Colors(5, listOf(4, 3, 2, 1, 0))))
+        assertEquals(reordered, PadSetup.fromJson(reordered.toJson()))
+
+        val count = "\"count\": 3"
+        val countError = "pad: pad.goals[0].count must be an integer from 1 to 6"
+        for (bad in listOf("0", "7", "2.5", "\"3\"")) assertFormatError(json.replace(count, "\"count\": $bad"), countError)
+        assertFormatError(json.replace(count, "\"count\": 6"), "pad: Colour count must be at most 5, the colours in the set")
+        val of = Regex("\"of\": \\[[^\\]]*]")
+        val ofError = "pad: pad.goals[1].of must be a non-empty array of distinct colours R, B, G, L, D, H"
+        for (bad in listOf("[]", "[\"H\", \"J\"]", "[\"h\"]", "[\"H\", \"H\"]", "\"HB\"", "[1]", "[\"HB\"]")) {
+            assertFormatError(json.replace(of, "\"of\": $bad"), ofError)
+        }
+        assertFormatError(json.replace(of, "\"of\": [\"H\"]"), "pad: Colour count must be at most 1, the colours in the set")
+    }
+
+    @Test
+    fun scriptJsonKeepsTshapeGoals() {
+        val setup = PadSetup(goals = listOf(Goal.Shape("tshape", Orbs.code('D'))))
+        val script = Script("tee", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"type\": \"tshape\""))
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("T shape of Dark · 150 ms/move", setup.summary())
+    }
+
     private fun assertFormatError(json: String, message: String) {
         try {
             ScriptJson.parse(json)

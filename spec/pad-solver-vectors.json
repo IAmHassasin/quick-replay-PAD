@@ -930,6 +930,943 @@
         "afterDrag": "LLLLBB\nRHGDGL\nBRRDRR\nHBRGBL\nLBBRRD",
         "rounds": 1
       }
+    },
+    {
+      "name": "blob 5+ R",
+      "board": "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          2,
+          8
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "RRRRRG\nGLBDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "blob 5+ H impossible",
+      "board": "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "H",
+          "min": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Heart: the goals need 5 orbs, the board has 4"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "three blob R + blob B",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3
+        },
+        {
+          "type": "blob",
+          "color": "B",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          8,
+          1
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "RRRBBB\nGDLHHD\nHGGDGL\nLHBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "twice two blobs R",
+      "board": "RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3
+        },
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          2,
+          7,
+          13
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "RRRBGL\nGHLHBD\nRRRBLG\nBLGDHB\nDGHLRH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "twice two blobs D impossible",
+      "board": "RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "D",
+          "min": 3
+        },
+        {
+          "type": "blob",
+          "color": "D",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Dark: the goals need 6 orbs, the board has 3"
+        ],
+        "path": [],
+        "goalsMet": [
+          false,
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "twice two blobs R one move unmet",
+      "board": "RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3
+        },
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          2,
+          7
+        ],
+        "goalsMet": [
+          true,
+          false
+        ],
+        "combos": 1,
+        "afterDrag": "RRRRGL\nGBLHBD\nRHRBLG\nBLGDHB\nDGHLRH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc blob 6+ B + row L",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "B",
+          "min": 6
+        },
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          21,
+          26,
+          20,
+          25,
+          18,
+          12,
+          7,
+          0,
+          1,
+          8,
+          3,
+          10,
+          4,
+          9,
+          15,
+          16,
+          10,
+          17,
+          23,
+          16,
+          10,
+          17
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 4,
+        "afterDrag": "GDHGDB\nLLLLLL\nRRRRRG\nBBBBBB\nLHRRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc blob 4+ R no diagonals",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 4
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          15,
+          16,
+          17
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LGHLBB\nLRDDGL\nBRRRRL\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "full 9x9 blob 73+ R",
+      "board": "BRRRRRRRR\nRBRRRRRRR\nRRBRRRRRR\nRRRBRRRRR\nRRRRBRRRR\nRRRRRBRRR\nRRRRRRBRR\nRRRRRRRBR\nRRRRRRRRR",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 73
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 8
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          22,
+          30
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "BRRRRRRRR\nRBRRRRRRR\nRRBRBRRRR\nRRRRRRRRR\nRRRRBRRRR\nRRRRRBRRR\nRRRRRRBRR\nRRRRRRRBR\nRRRRRRRRR",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "three colors 3+",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          12,
+          6,
+          1,
+          2,
+          3,
+          9
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 4,
+        "afterDrag": "RRRBBB\nLDHHHD\nGGGDGL\nLHBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "rbg colors 4+ impossible",
+      "board": "RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 4
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "4+ colours: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "three colors 2+ of B H",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2,
+          "of": [
+            "B",
+            "H"
+          ]
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          15,
+          14,
+          13,
+          19
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "RLRBBB\nGDHDHD\nHHGGGL\nLRBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "three colors 2+ of H B",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2,
+          "of": [
+            "H",
+            "B"
+          ]
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          15,
+          14,
+          13,
+          19
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "RLRBBB\nGDHDHD\nHHGGGL\nLRBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "duo colors 2+ one move",
+      "board": "RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          2,
+          3
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "RRRBBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "duo colors 2+ of R H one move unmet",
+      "board": "RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2,
+          "of": [
+            "R",
+            "H"
+          ]
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          2,
+          3
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 2,
+        "afterDrag": "RRRBBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "three colors 3+ one move unmet",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          15,
+          16
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 1,
+        "afterDrag": "RLRRBB\nGDHBHD\nHGGGDL\nLHBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc colors 4+ + 6 combos",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 4
+        },
+        {
+          "type": "combos",
+          "count": 6
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          24,
+          19,
+          14,
+          15,
+          10,
+          3,
+          9,
+          14,
+          15,
+          16,
+          10,
+          5
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 6,
+        "afterDrag": "LGHDBL\nLRDLBL\nBRGRLR\nHRRGBL\nBBBRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "shot colors 4+ of 6 + row G no diagonals",
+      "board": "LHDGHL\nHDLBHR\nGLBRGG\nGGBHBG\nHGLHBH",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 4,
+          "of": [
+            "R",
+            "B",
+            "G",
+            "L",
+            "D",
+            "H"
+          ]
+        },
+        {
+          "type": "row",
+          "color": "G"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          12,
+          6,
+          7,
+          8,
+          14,
+          20,
+          19,
+          25,
+          26,
+          27,
+          21,
+          22,
+          16,
+          15,
+          21
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 4,
+        "afterDrag": "LHDGHL\nDLBBHR\nHLBBRG\nGGGGGG\nHLHHBH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee tshape D",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          13,
+          19
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee tshape R impossible",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "R"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Fire: the goals need 5 orbs, the board has 4"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "tee far tshape D one move unmet",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          12,
+          13
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nHDDGBL\nLBRBGH\nRDLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee far tshape D",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          25,
+          19,
+          13
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee far tshape D no diagonals",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          25,
+          19,
+          13
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "blob exactly 5 R",
+      "board": "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 5,
+          "max": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          2,
+          8
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "RRRRRG\nGLBDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "blob exactly 6 G impossible",
+      "board": "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "G",
+          "min": 6,
+          "max": 6
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Wood: the goals need 6 orbs, the board has 5"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "six exactly 5 R + blob 3+ G one move unmet",
+      "board": "RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 5,
+          "max": 5
+        },
+        {
+          "type": "blob",
+          "color": "G",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          2,
+          9
+        ],
+        "goalsMet": [
+          false,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "RRRRBL\nDHRGGG\nBGRDHB\nLDHBGD\nGBLHDH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc blob 3-5 R",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3,
+          "max": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          7,
+          12
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LGHLBB\nLBDDGL\nRRRLRR\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc blob exactly 4 R no diagonals",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 4,
+          "max": 4
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          15,
+          16,
+          17
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LGHLBB\nLRDDGL\nBRRRRL\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
     }
   ]
 }

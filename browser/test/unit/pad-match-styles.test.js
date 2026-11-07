@@ -9,8 +9,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyPath, orbCode, parseBoard } from '../../extension/lib/pad/board.js';
 import { Matcher } from '../../extension/lib/pad/matcher.js';
-import { SHAPE_TYPES, comboHasShape, shapeFits, shapePlacements, shapeSize } from '../../extension/lib/pad/shapes.js';
-import { solve } from '../../extension/lib/pad/solver.js';
+import {
+  SHAPE_TYPES, blobPlacements, comboHasShape, rectanglePlacements, shapeFits, shapePlacements, shapeSize,
+} from '../../extension/lib/pad/shapes.js';
+import { goalLabel, normalizeGoals, solve } from '../../extension/lib/pad/solver.js';
 
 // Fixture boards, rows top to bottom. DOC, SHOT, RICH and R3 are the boards of the shared
 // vectors (orb counts in the comments); WIDE and BIG exercise other board sizes.
@@ -365,4 +367,371 @@ test('without diagonals an exact shape is still made with orthogonal moves only'
 test('without diagonals a full row is still made with orthogonal moves only', () => {
   const { result } = assertShapeGoal(DOC, 'row', 'L', { ...OPTIONS, diagonals: false });
   assertContinuous(result.path, 6, false);
+});
+
+// --- blob: one combo of a colour with at least N connected orbs (REHA-11) ------------------------
+
+// Boards of tools/pad-research/proposed-test-cases.json (REHA-4): 30 orbs, no initial match.
+const BLOB = 'RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB'; // R6 B6 G5 L6 D4 H4
+const THREE = 'RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG'; // R5 B5 G5 L5 D5 H5
+const RBG = 'RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH'; // R8 B8 G8 L2 D2 H2
+const TWICE = 'RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH'; // R7 B5 G5 L5 D3 H5
+
+const blob = (color, min) => ({ type: 'blob', color, min });
+
+/** Combos of one colour with at least `min` orbs, re-checked from the raw simulated cells. */
+function blobs(combos, color, min) {
+  return combos.filter((c) => c.color === orbCode(color) && c.cells.length >= min);
+}
+
+test('blob: 5+ Fire connected on the blob board in one move', () => {
+  const { result, combos } = assertSolved(BLOB, [blob('R', 5)]);
+  assert.deepEqual(result.goals, [{ label: '5+ Fire connected', met: true }]);
+  assert.equal(result.moves, 1, 'the R at r1c2 moved up completes R x5 in row 0');
+  assert.equal(blobs(combos, 'R', 5).length, 1);
+});
+
+test('blob: a fixed colour set is one blob goal per colour (min 3)', () => {
+  const { result, combos } = assertSolved(THREE, [blob('R', 3), blob('B', 3)]);
+  assert.deepEqual(result.goals.map((g) => g.label), ['3+ Fire connected', '3+ Water connected']);
+  assert.equal(blobs(combos, 'R', 3).length >= 1, true);
+  assert.equal(blobs(combos, 'B', 3).length >= 1, true);
+});
+
+test('blob: a repeated goal needs separate combos of the colour', () => {
+  const { combos } = assertSolved(TWICE, [blob('R', 3), blob('R', 3)]);
+  assert.ok(blobs(combos, 'R', 3).length >= 2, 'two separate Fire combos');
+});
+
+test('blob: impossible from orb counts without searching', () => {
+  assertImpossible(BLOB, [blob('H', 5)], ['Heart: the goals need 5 orbs, the board has 4']);
+  assertImpossible(RBG, [blob('L', 3), blob('D', 3)], [
+    'Light: the goals need 3 orbs, the board has 2',
+    'Dark: the goals need 3 orbs, the board has 2',
+  ]);
+  assertImpossible(TWICE, [blob('D', 3), blob('D', 3)], ['Dark: the goals need 6 orbs, the board has 3']);
+  // Blob orbs add up with other goals of the colour.
+  assertImpossible(BLOB, [{ type: 'row', color: 'R' }, blob('R', 3)], ['Fire: the goals need 9 orbs, the board has 6']);
+});
+
+test('blob: unmet with one move when two separate combos are needed', () => {
+  const board = parseBoard(TWICE);
+  const goals = [blob('R', 3), blob('R', 3)];
+  const result = solve(board, goals, { ...OPTIONS, maxMoves: 1 });
+  // One move makes one Fire combo; that combo cannot count for the second goal too.
+  assert.equal(result.status, 'partial');
+  assert.deepEqual(result.goals.map((g) => g.met), [true, false]);
+  assert.equal(result.moves, 1);
+  assertContinuous(result.path, board.cols, true);
+  assert.equal(blobs(replay(board, result), 'R', 3).length, 1);
+  // A single goal of a size one move cannot reach stays unmet.
+  assertUnmet(TWICE, [blob('R', 6)]);
+});
+
+test('blob: min must be an integer from 3 to the board size', () => {
+  for (const min of [2, 0, -3, 3.5, '5', undefined, null]) {
+    assert.throws(() => normalizeGoals([blob('R', min)]), /Goal 1: blob size must be an integer >= 3/, String(min));
+  }
+  assert.throws(() => normalizeGoals([{ type: 'blob', min: 5 }]), /Goal 1: unknown colour/);
+  // Without a board the limit is the largest board (9x9).
+  assert.throws(() => normalizeGoals([blob('R', 82)]), /at most 81/);
+  assert.deepEqual(normalizeGoals([blob('R', 81)]), [{ type: 'blob', color: 0, min: 81 }]);
+  // With a board: at most rows x cols orbs.
+  assert.deepEqual(normalizeGoals([blob('H', 30)], { rows: 5, cols: 6 }), [{ type: 'blob', color: 5, min: 30 }]);
+  assert.throws(() => normalizeGoals([blob('H', 31)], { rows: 5, cols: 6 }), /Goal 1: blob size must be at most 30 on a 6x5 board/);
+  assert.throws(() => solve(parseBoard(BLOB), [blob('R', 31)], OPTIONS), /at most 30/);
+  assert.equal(goalLabel({ type: 'blob', color: orbCode('G'), min: 7 }), '7+ Wood connected');
+});
+
+test('blob placements: rectangles of min to min + 2 orbs with a side of 3+, h then w then row then column', () => {
+  const placements = blobPlacements(5, ROWS, COLS);
+  const sizes = [];
+  for (const { cells, exact } of placements) {
+    assert.equal(exact, false);
+    const rs = cells.map((i) => row(i, COLS));
+    const cs = cells.map((i) => col(i, COLS));
+    const h = Math.max(...rs) - Math.min(...rs) + 1;
+    const w = Math.max(...cs) - Math.min(...cs) + 1;
+    assert.equal(cells.length, h * w, 'a filled rectangle');
+    assert.ok(h * w >= 5 && h * w <= 7 && Math.max(h, w) >= 3, `${h}x${w}`);
+    assert.deepEqual(cells, sorted(cells));
+    const size = `${h}x${w}`;
+    if (sizes.at(-1) !== size) sizes.push(size);
+  }
+  // 1x5, 1x6, 2x3, 3x2, 5x1 (no 1x7, 7x1 or 6x1 on 6x5).
+  assert.deepEqual(sizes, ['1x5', '1x6', '2x3', '3x2', '5x1']);
+  assert.equal(placements.length, 5 * 2 + 5 * 1 + 4 * 4 + 3 * 5 + 1 * 6);
+  // Row-major order inside one size.
+  assert.deepEqual(placements[0].cells, [0, 1, 2, 3, 4]);
+  assert.deepEqual(placements[1].cells, [1, 2, 3, 4, 5]);
+  assert.deepEqual(placements[2].cells, [6, 7, 8, 9, 10]);
+  assert.deepEqual(rectanglePlacements(2, 3, ROWS, COLS)[0], [0, 1, 2, 6, 7, 8]);
+  assert.equal(rectanglePlacements(2, 3, ROWS, COLS).length, 4 * 4);
+  assert.deepEqual(rectanglePlacements(6, 1, ROWS, COLS), []);
+  // The whole board is the only placement for min = rows x cols.
+  assert.deepEqual(blobPlacements(30, ROWS, COLS).map((p) => p.cells.length), [30]);
+});
+
+test('blob placements exist for every min on every board size', () => {
+  for (let rows = 3; rows <= 9; rows++) {
+    for (let cols = 3; cols <= 9; cols++) {
+      for (let min = 3; min <= rows * cols; min++) {
+        const placements = blobPlacements(min, rows, cols);
+        assert.ok(placements.length > 0, `min ${min} on ${cols}x${rows}`);
+        for (const { cells } of placements) assert.ok(cells.length >= min);
+      }
+    }
+  }
+});
+
+// --- colors: at least K distinct colours among the combos (REHA-12) ------------------------------
+
+// One swap of r0c2 and r0c3 makes R R R B B B in row 0 (two colours); the three hearts are apart,
+// so no single move makes a Heart combo. No initial match.
+const DUO = 'RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD'; // R3 B3 G6 L7 D7 H3
+
+const colors = (count, of) => (of ? { type: 'colors', count, of } : { type: 'colors', count });
+
+/** Distinct colours of the combos that are in `of` (default: the 5 attributes). */
+function distinctColors(combos, of = ['R', 'B', 'G', 'L', 'D']) {
+  return new Set(combos.map((c) => c.color).filter((code) => of.map(orbCode).includes(code))).size;
+}
+
+test('colors: 3+ colours on the three board', () => {
+  const { result, combos } = assertSolved(THREE, [colors(3)]);
+  assert.deepEqual(result.goals, [{ label: '3+ colours', met: true }]);
+  assert.ok(distinctColors(combos) >= 3, `${distinctColors(combos)} colours`);
+});
+
+test('colors: impossible when fewer colours of the set have 3 orbs', () => {
+  assertImpossible(RBG, [colors(4)], ['4+ colours: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4']);
+  // Hearts are outside the default set; with them in the set the RBG board still has 3 (H2).
+  assertImpossible(RBG, [colors(4, ['R', 'B', 'G', 'H'])], [
+    '4+ colours of Fire, Water, Wood, Heart: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4',
+  ]);
+  // Colours outside `of` do not count: only Fire of R, L, D has 3+ orbs on the RBG board.
+  assertImpossible(RBG, [colors(2, ['R', 'L', 'D'])], [
+    '2+ colours of Fire, Light, Dark: only 1 colour has 3 or more orbs (R), the goal needs 2',
+  ]);
+  assertImpossible(RBG, [colors(1, ['L', 'D'])], ['1+ colours of Light, Dark: only 0 colours have 3 or more orbs, the goal needs 1']);
+});
+
+test('colors: a set with Heart counts a Heart combo as a colour', () => {
+  const { result, combos } = assertSolved(THREE, [colors(2, ['B', 'H'])]);
+  assert.equal(result.goals[0].label, '2+ colours of Water, Heart');
+  const found = new Set(combos.map((c) => c.color));
+  assert.ok(found.has(orbCode('B')) && found.has(orbCode('H')), 'a Water and a Heart combo');
+});
+
+test('colors: colours outside the set do not count', () => {
+  // One move makes Fire and Water combos: enough for the default set, not for Fire + Heart.
+  const { result } = assertSolved(DUO, [colors(2)], { ...OPTIONS, maxMoves: 1 });
+  assert.equal(result.moves, 1);
+  const board = parseBoard(DUO);
+  const unmet = solve(board, [colors(2, ['R', 'H'])], { ...OPTIONS, maxMoves: 1 });
+  assert.equal(unmet.status, 'partial');
+  assert.deepEqual(unmet.goals.map((g) => g.met), [false]);
+  // The order of the set does not change the result.
+  const reordered = solve(board, [colors(2, ['H', 'R'])], { ...OPTIONS, maxMoves: 1 });
+  assert.deepEqual(reordered.path, unmet.path);
+});
+
+test('colors: unmet with one move on the three board', () => {
+  assertUnmet(THREE, [colors(3)]);
+});
+
+test('colors: count from 1 to 6 and a non-empty set of distinct R, B, G, L, D, H', () => {
+  for (const count of [0, 7, -1, 2.5, '3', undefined, null]) {
+    assert.throws(() => normalizeGoals([colors(count)]), /Goal 1: colour count must be an integer from 1 to 6/, String(count));
+  }
+  for (const of of [[], 'RBG', ['R', 'J'], ['r'], ['R', 'R'], [6], ['X'], [null]]) {
+    assert.throws(() => normalizeGoals([colors(1, of)]), /Goal 1: of must be a non-empty list of distinct colours R, B, G, L, D, H/, JSON.stringify(of));
+  }
+  assert.throws(() => normalizeGoals([colors(3, ['R', 'B'])]), /Goal 1: colour count must be at most 2, the colours in of/);
+  assert.throws(() => normalizeGoals([colors(6)]), /at most 5/);
+  assert.deepEqual(normalizeGoals([colors(3)]), [{ type: 'colors', count: 3, of: [0, 1, 2, 3, 4] }]);
+  assert.deepEqual(normalizeGoals([colors(6, ['H', 'R', 'B', 'G', 'L', 'D'])]), [{ type: 'colors', count: 6, of: [5, 0, 1, 2, 3, 4] }]);
+  // Normalised goals (orb codes) normalise to themselves.
+  assert.deepEqual(normalizeGoals(normalizeGoals([colors(2, ['B', 'H'])])), [{ type: 'colors', count: 2, of: [1, 5] }]);
+  assert.equal(goalLabel(normalizeGoals([colors(3)])[0]), '3+ colours');
+  // The default set in another order is still the default label.
+  assert.equal(goalLabel(normalizeGoals([colors(5, ['D', 'L', 'G', 'B', 'R'])])[0]), '5+ colours');
+});
+
+// --- T shape (REHA-13) ----------------------------------------------------------------------------
+
+// TEE of tools/pad-research/proposed-test-cases.json: moving the D at r3c1 up makes a T of Dark.
+const TEE = 'BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG'; // R4 B5 G5 L5 D6 H5
+// TEE with the D at r3c1 swapped one row down: the T needs two moves.
+const TEE_FAR = 'BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG'; // R4 B5 G5 L5 D6 H5
+
+test('tshape is exactly 5 orbs: 3 in a line plus 2 from its middle, in any orientation', () => {
+  const ts = [
+    [at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1)], // stem down
+    [at(0, 1), at(1, 1), at(2, 0), at(2, 1), at(2, 2)], // stem up
+    [at(0, 0), at(1, 0), at(2, 0), at(1, 1), at(1, 2)], // stem right
+    [at(0, 2), at(1, 2), at(2, 2), at(1, 1), at(1, 0)], // stem left
+  ].map(sorted);
+  for (const t of ts) {
+    assert.ok(comboHasShape('tshape', t, ROWS, COLS), `T ${t}`);
+    for (const type of ['square', 'cross', 'lshape', 'tpa']) assert.ok(!comboHasShape(type, t, ROWS, COLS), `a T is not a ${type}`);
+  }
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 0), at(1, 0), at(2, 0), at(2, 1), at(2, 2)]), ROWS, COLS), 'an L is not a T');
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 1), at(1, 0), at(1, 1), at(1, 2), at(2, 1)]), ROWS, COLS), 'a cross is not a T');
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1), at(3, 1)]), ROWS, COLS), '6 orbs: a longer stem');
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 0), at(0, 1), at(0, 2), at(0, 3), at(1, 1)]), ROWS, COLS), '4 in a line plus 1');
+  // Exact shape: a T with one more orb of the colour attached is a 6-orb combo, not a T.
+  assert.ok(!comboHasShape('tshape', sorted([...ts[0], at(1, 0)]), ROWS, COLS), 'a T with one extra orb');
+  assert.ok(!comboHasShape('tshape', sorted([...ts[1], at(2, 3)]), ROWS, COLS), 'a T with a longer bar');
+  // Same shape away from the corner of the board.
+  assert.ok(comboHasShape('tshape', sorted([at(2, 3), at(2, 4), at(2, 5), at(3, 4), at(4, 4)]), ROWS, COLS), 'T at r2c3');
+});
+
+test('tshape: size 5, needs a 3x3 board, 4 placements per 3x3 window', () => {
+  assert.ok(SHAPE_TYPES.includes('tshape'));
+  assert.equal(shapeSize('tshape', 5, 6), 5);
+  assert.ok(shapeFits('tshape', 3, 3));
+  for (const [rows, cols] of [[2, 6], [6, 2], [2, 2], [1, 9]]) assert.ok(!shapeFits('tshape', rows, cols), `${cols}x${rows}`);
+  assert.equal(shapePlacements('tshape', 5, 6).length, 48);
+  assert.equal(shapePlacements('tshape', 4, 5).length, 2 * 3 * 4);
+  assert.equal(shapePlacements('tshape', 3, 3).length, 4);
+  // Orientation order per window (decides ties; Shapes.kt keeps it): stem down, up, right, left.
+  assert.deepEqual(shapePlacements('tshape', 3, 3), [
+    { cells: [0, 1, 2, 4, 7], exact: true },
+    { cells: [1, 4, 6, 7, 8], exact: true },
+    { cells: [0, 3, 4, 5, 6], exact: true },
+    { cells: [2, 3, 4, 5, 8], exact: true },
+  ]);
+  assert.equal(goalLabel(normalizeGoals([{ type: 'tshape', color: 'D' }])[0]), 'T shape of Dark');
+});
+
+test('tshape: T of Dark on the tee board in one move', () => {
+  const { result, combo } = assertShapeGoal(TEE, 'tshape', 'D');
+  // One swap of r2c1 and r3c1. The research case wrote [19, 13] (D up); the solver holds the H and
+  // drags it down ([13, 19]), which leaves the same board.
+  assert.equal(result.moves, 1);
+  assert.deepEqual(sorted(result.path), [13, 19]);
+  assert.equal(combo.cells.length, 5);
+  assert.deepEqual(combo.cells, [1, 7, 12, 13, 14], 'column 1 rows 0-2 + row 2 columns 0-2: stem up');
+  const reported = result.combos.find((c) => c.color === 'D' && c.shapes.includes('tshape'));
+  assert.deepEqual(reported.shapes, ['tshape'], 'not a cross, L, square or 4 in a line');
+});
+
+test('tshape: impossible with 4 Fire orbs, unmet with one move when the T needs two', () => {
+  assertImpossible(TEE, [{ type: 'tshape', color: 'R' }], ['Fire: the goals need 5 orbs, the board has 4']);
+  assertImpossible('RRB\nGLD\nHBG', [{ type: 'tshape', color: 'R' }], ['Fire: the goals need 5 orbs, the board has 2']);
+  assertUnmet(TEE_FAR, [{ type: 'tshape', color: 'D' }]);
+  assertShapeGoal(TEE_FAR, 'tshape', 'D');
+});
+
+// --- blob with max: exactly N (or N to M) connected orbs (REHA-14) -------------------------------
+
+// R6, no initial match. The R at r1c3 moved up-left to r0c2 makes a Fire combo of 6 (R R R R in
+// row 0 plus r1c2, r2c2 below) and, with the G it swaps down, G G G in row 1: the only move that
+// makes a Wood combo next to Fire. Other one-move Fire combos have 3, 4 or 5 orbs (e.g. the R at
+// r0c3 moved left: R R R in row 0 plus r1c2, r2c2). B5 G6 L3 D5 H5.
+const SIX = 'RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH';
+
+// Only 3 (R3_ONLY) or 4 (R4_ONLY) Fire orbs; one move up of the R at r1c2 joins them in row 0.
+const R3_ONLY = 'RRGLBL\nDHRHLG\nBGLDHB\nLDHBGD\nGBLHDH';
+const R4_ONLY = 'RRGRBL\nDHRHLG\nBGLDHB\nLDHBGD\nGBLHDH';
+
+const blobMax = (color, min, max) => ({ type: 'blob', color, min, max });
+const fireSizes = (combos) => combos.filter((c) => c.color === orbCode('R')).map((c) => c.cells.length);
+
+test('blob max: exactly 5 Fire on the blob board in one move', () => {
+  const { result, combos } = assertSolved(BLOB, [blobMax('R', 5, 5)]);
+  assert.deepEqual(result.goals, [{ label: 'exactly 5 Fire', met: true }]);
+  assert.equal(result.moves, 1);
+  const fire = combos.filter((c) => c.color === orbCode('R'));
+  assert.deepEqual(fire.map((c) => c.cells.length), [5]);
+});
+
+test('blob max: impossible from orb counts without searching', () => {
+  assertImpossible(BLOB, [blobMax('G', 6, 6)], ['Wood: the goals need 6 orbs, the board has 5']);
+});
+
+test('blob max: a combo larger than max does not meet the goal', () => {
+  const one = { ...OPTIONS, maxMoves: 1 };
+  // The diagonal move: Fire x6 and Wood x3, so 6+ Fire and 3+ Wood together are met.
+  const six = assertSolved(SIX, [blob('R', 6), blob('G', 3)], one);
+  assert.deepEqual(fireSizes(six.combos), [6]);
+  // Exactly 5 alone is still solved, with another move (the R at r0c3 moved left).
+  const exact = assertSolved(SIX, [blobMax('R', 5, 5)], one);
+  assert.deepEqual(exact.result.goals, [{ label: 'exactly 5 Fire', met: true }]);
+  assert.deepEqual(fireSizes(exact.combos), [5]);
+  // Exactly 5 Fire plus 3+ Wood: only the diagonal move makes Wood, and its Fire combo of 6 is too
+  // big. If 6 counted for "exactly 5" that move would meet both goals.
+  const result = solve(parseBoard(SIX), [blobMax('R', 5, 5), blob('G', 3)], one);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.goals.filter((g) => g.met).length, 1);
+  const sizes = fireSizes(replay(parseBoard(SIX), result));
+  assert.equal(result.goals[0].met, sizes.includes(5));
+  // 5 to 6 accepts the combo of 6.
+  const ranged = assertSolved(SIX, [blobMax('R', 5, 6), blob('G', 3)], one);
+  assert.deepEqual(ranged.result.goals.map((g) => g.label), ['5-6 Fire connected', '3+ Wood connected']);
+  assert.deepEqual(fireSizes(ranged.combos), [6]);
+});
+
+test('blob max: a range accepts combos from min to max orbs and rejects bigger ones', () => {
+  const one = { ...OPTIONS, maxMoves: 1 };
+  const range = blobMax('R', 3, 5);
+  // 3 Fire orbs: one move makes a combo of 3.
+  assert.deepEqual(fireSizes(assertSolved(R3_ONLY, [range], one).combos), [3]);
+  // 4 Fire orbs: the combo of 4 meets 4 to 5; with 3 to 5 a combo of 3 or 4 does.
+  assert.deepEqual(fireSizes(assertSolved(R4_ONLY, [blobMax('R', 4, 5)], one).combos), [4]);
+  assert.ok(fireSizes(assertSolved(R4_ONLY, [range], one).combos).every((n) => n >= 3 && n <= 5));
+  // BLOB: one move makes Fire combos of 3 to 5 (the solver picks one of 3 for 3 to 5); the combo
+  // of 5 meets 5 to 6.
+  const blobBoard = assertSolved(BLOB, [range], one);
+  assert.deepEqual(blobBoard.result.goals, [{ label: '3-5 Fire connected', met: true }]);
+  assert.ok(fireSizes(blobBoard.combos).every((n) => n >= 3 && n <= 5));
+  assert.deepEqual(fireSizes(assertSolved(BLOB, [blobMax('R', 5, 6)], one).combos), [5]);
+  // The combo of 6 on SIX does not count: 3 to 5 Fire plus 3+ Wood is unmet in one move.
+  const result = solve(parseBoard(SIX), [range, blob('G', 3)], one);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.goals.filter((g) => g.met).length, 1);
+  const sizes = fireSizes(replay(parseBoard(SIX), result));
+  assert.equal(result.goals[0].met, sizes.some((n) => n >= 3 && n <= 5));
+});
+
+test('blob max: max must be an integer >= min and fit the board; absent means no upper bound', () => {
+  assert.deepEqual(normalizeGoals([blobMax('R', 5, 5)]), [{ type: 'blob', color: 0, min: 5, max: 5 }]);
+  assert.deepEqual(normalizeGoals([blobMax('R', 3, 7)]), [{ type: 'blob', color: 0, min: 3, max: 7 }]);
+  // Absent (or undefined) max: the goal of REHA-11, without a max key.
+  assert.deepEqual(normalizeGoals([blob('R', 5)]), [{ type: 'blob', color: 0, min: 5 }]);
+  assert.deepEqual(normalizeGoals([{ type: 'blob', color: 'R', min: 5, max: undefined }]), [{ type: 'blob', color: 0, min: 5 }]);
+  for (const max of [4, 0, 5.5, '5', null]) {
+    assert.throws(() => normalizeGoals([blobMax('R', 5, max)]), /Goal 1: blob max must be an integer >= min \(5\)/, String(max));
+  }
+  assert.throws(() => normalizeGoals([blobMax('R', 5, 31)], { rows: 5, cols: 6 }), /Goal 1: blob max must be at most 30 on a 6x5 board/);
+  assert.throws(() => normalizeGoals([blobMax('R', 5, 82)]), /Goal 1: blob max must be at most 81/);
+  assert.throws(() => solve(parseBoard(BLOB), [blobMax('R', 6, 5)], OPTIONS), /blob max must be an integer >= min \(6\)/);
+  assert.equal(goalLabel({ type: 'blob', color: orbCode('D'), min: 5, max: 5 }), 'exactly 5 Dark');
+  assert.equal(goalLabel({ type: 'blob', color: orbCode('G'), min: 5, max: 7 }), '5-7 Wood connected');
+});
+
+test('blob max placements: exact rectangles of min orbs when max = min, else at most max orbs', () => {
+  // Exactly 5: 1x5 and 5x1 only, exact (border penalty like tpa).
+  const exact = blobPlacements(5, ROWS, COLS, 5);
+  assert.equal(exact.length, 5 * 2 + 6 * 1);
+  for (const { cells, exact: isExact } of exact) {
+    assert.equal(cells.length, 5);
+    assert.equal(isExact, true);
+  }
+  // 5 to 6: the 1x5, 1x6, 2x3, 3x2 and 5x1 rectangles of up to 6 orbs, not exact.
+  const ranged = blobPlacements(5, ROWS, COLS, 6);
+  assert.ok(ranged.every((p) => !p.exact && p.cells.length >= 5 && p.cells.length <= 6));
+  assert.deepEqual(ranged, blobPlacements(5, ROWS, COLS).filter((p) => p.cells.length <= 6));
+  // No max: unchanged (REHA-11).
+  assert.deepEqual(blobPlacements(5, ROWS, COLS, undefined), blobPlacements(5, ROWS, COLS));
+  // No rectangle of exactly 7 fits 6x5 (1x7, 7x1): fall back to the no-max placements, not exact.
+  assert.deepEqual(blobPlacements(7, ROWS, COLS, 7), blobPlacements(7, ROWS, COLS));
+  for (let rows = 3; rows <= 9; rows++) {
+    for (let cols = 3; cols <= 9; cols++) {
+      for (let min = 3; min <= rows * cols; min++) {
+        assert.ok(blobPlacements(min, rows, cols, min).length > 0, `exactly ${min} on ${cols}x${rows}`);
+      }
+    }
+  }
 });

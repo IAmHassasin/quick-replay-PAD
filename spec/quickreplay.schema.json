@@ -47,7 +47,7 @@
         {
           "type": "object",
           "properties": {
-            "type": { "enum": ["row", "column", "square", "cross", "lshape", "tpa"] },
+            "type": { "enum": ["row", "column", "square", "cross", "lshape", "tpa", "tshape"] },
             "color": { "enum": ["R", "B", "G", "L", "D", "H"] }
           },
           "required": ["type", "color"]
@@ -55,6 +55,32 @@
         {
           "type": "object",
           "properties": { "type": { "const": "combos" }, "count": { "type": "integer", "minimum": 1 } },
+          "required": ["type", "count"]
+        },
+        {
+          "type": "object",
+          "description": "One combo of the colour with at least `min` and at most `max` connected orbs (both at most rows x cols; `max` absent = no upper bound, `max` = `min` = exactly that many). A repeated goal needs another combo. JSON Schema cannot compare two properties: `max` >= `min` is checked by the apps.",
+          "properties": {
+            "type": { "const": "blob" },
+            "color": { "enum": ["R", "B", "G", "L", "D", "H"] },
+            "min": { "type": "integer", "minimum": 3, "maximum": 81 },
+            "max": { "type": "integer", "minimum": 3, "maximum": 81 }
+          },
+          "required": ["type", "color", "min"]
+        },
+        {
+          "type": "object",
+          "description": "Combos of at least `count` distinct colours of `of` (default the 5 attributes R, B, G, L, D; add H for hearts). `count` must not exceed the colours in `of`.",
+          "properties": {
+            "type": { "const": "colors" },
+            "count": { "type": "integer", "minimum": 1, "maximum": 6 },
+            "of": {
+              "type": "array",
+              "items": { "enum": ["R", "B", "G", "L", "D", "H"] },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
           "required": ["type", "count"]
         }
       ]

@@ -3,6 +3,7 @@ package dev.quickreplay
 import dev.quickreplay.pad.Board
 import dev.quickreplay.pad.Combo
 import dev.quickreplay.pad.Goal
+import dev.quickreplay.pad.GoalResult
 import dev.quickreplay.pad.Matcher
 import dev.quickreplay.pad.Orbs
 import dev.quickreplay.pad.Shapes
@@ -15,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -404,5 +406,389 @@ class PadMatchStyleTest {
     fun withoutDiagonalsAFullRowIsMadeWithOrthogonalMovesOnly() {
         val s = assertShapeGoal(doc, "row", 'L', options.copy(diagonals = false))
         assertContinuous(s.result.path, 6, diagonals = false)
+    }
+
+    // --- blob: one combo of a colour with at least N connected orbs (REHA-11) ------------------------
+
+    // Boards of tools/pad-research/proposed-test-cases.json (REHA-4): 30 orbs, no initial match.
+    private val blobBoard = "RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB" // R6 B6 G5 L6 D4 H4
+    private val three = "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG" // R5 B5 G5 L5 D5 H5
+    private val rbg = "RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH" // R8 B8 G8 L2 D2 H2
+    private val twice = "RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH" // R7 B5 G5 L5 D3 H5
+
+    private fun blob(color: Char, min: Int) = Goal.Blob(Orbs.code(color), min)
+
+    /** Combos of one colour with at least [min] orbs, re-checked from the raw simulated cells. */
+    private fun blobs(combos: List<Combo>, color: Char, min: Int) = combos.filter { it.color == Orbs.code(color) && it.cells.size >= min }
+
+    @Test
+    fun blobOfFivePlusFireOnTheBlobBoardInOneMove() {
+        val s = assertSolved(blobBoard, listOf(blob('R', 5)))
+        assertEquals(listOf(GoalResult("5+ Fire connected", true)), s.result.goals)
+        assertEquals("the R at r1c2 moved up completes R x5 in row 0", 1, s.result.moves)
+        assertEquals(1, blobs(s.combos, 'R', 5).size)
+    }
+
+    @Test
+    fun blobFixedColourSetIsOneBlobGoalPerColour() {
+        val s = assertSolved(three, listOf(blob('R', 3), blob('B', 3)))
+        assertEquals(listOf("3+ Fire connected", "3+ Water connected"), s.result.goals.map { it.label })
+        assertTrue(blobs(s.combos, 'R', 3).isNotEmpty())
+        assertTrue(blobs(s.combos, 'B', 3).isNotEmpty())
+    }
+
+    @Test
+    fun blobRepeatedGoalNeedsSeparateCombos() {
+        val s = assertSolved(twice, listOf(blob('R', 3), blob('R', 3)))
+        assertTrue("two separate Fire combos", blobs(s.combos, 'R', 3).size >= 2)
+    }
+
+    @Test
+    fun blobImpossibleFromOrbCountsWithoutSearching() {
+        assertImpossible(blobBoard, listOf(blob('H', 5)), listOf("Heart: the goals need 5 orbs, the board has 4"))
+        assertImpossible(
+            rbg, listOf(blob('L', 3), blob('D', 3)),
+            listOf("Light: the goals need 3 orbs, the board has 2", "Dark: the goals need 3 orbs, the board has 2"),
+        )
+        assertImpossible(twice, listOf(blob('D', 3), blob('D', 3)), listOf("Dark: the goals need 6 orbs, the board has 3"))
+        // Blob orbs add up with other goals of the colour.
+        assertImpossible(blobBoard, listOf(shape("row", 'R'), blob('R', 3)), listOf("Fire: the goals need 9 orbs, the board has 6"))
+    }
+
+    @Test
+    fun blobUnmetWithOneMoveWhenTwoSeparateCombosAreNeeded() {
+        val board = Board.parse(twice)
+        val result = Solver.solve(board, listOf(blob('R', 3), blob('R', 3)), options.copy(maxMoves = 1))
+        // One move makes one Fire combo; that combo cannot count for the second goal too.
+        assertEquals("partial", result.status)
+        assertEquals(listOf(true, false), result.goals.map { it.met })
+        assertEquals(1, result.moves)
+        assertContinuous(result.path, board.cols, diagonals = true)
+        assertEquals(1, blobs(replay(board, result), 'R', 3).size)
+        // A single goal of a size one move cannot reach stays unmet.
+        assertUnmet(twice, listOf(blob('R', 6)))
+    }
+
+    @Test
+    fun blobMinMustBeFromThreeToTheBoardSize() {
+        for (min in listOf(2, 0, -3)) assertThrows("min $min", IllegalArgumentException::class.java) { blob('R', min) }
+        // Without a board the limit is the largest board (9x9).
+        assertThrows(IllegalArgumentException::class.java) { blob('R', 82) }
+        assertEquals(81, blob('R', 81).min)
+        assertThrows(IllegalArgumentException::class.java) { Goal.Blob(Orbs.COUNT, 5) }
+        // With a board: at most rows x cols orbs.
+        val error = assertThrows(IllegalArgumentException::class.java) { Solver.solve(Board.parse(blobBoard), listOf(blob('R', 31)), options) }
+        assertEquals("Blob size must be at most 30 on a 6x5 board", error.message)
+        assertEquals("7+ Wood connected", blob('G', 7).label)
+    }
+
+    @Test
+    fun blobPlacementsAreRectanglesOfMinToMinPlusTwoWithASideOfThree() {
+        val placements = Shapes.blobPlacements(5, 5, 6)
+        val sizes = ArrayList<String>()
+        for (p in placements) {
+            assertFalse(p.exact)
+            val h = p.cells.maxOf { it / 6 } - p.cells.minOf { it / 6 } + 1
+            val w = p.cells.maxOf { it % 6 } - p.cells.minOf { it % 6 } + 1
+            assertEquals("a filled rectangle", h * w, p.cells.size)
+            assertTrue("${h}x$w", h * w in 5..7 && maxOf(h, w) >= 3)
+            assertArrayEquals(p.cells.sortedArray(), p.cells)
+            if (sizes.lastOrNull() != "${h}x$w") sizes += "${h}x$w"
+        }
+        // 1x5, 1x6, 2x3, 3x2, 5x1 (no 1x7, 7x1 or 6x1 on 6x5).
+        assertEquals(listOf("1x5", "1x6", "2x3", "3x2", "5x1"), sizes)
+        assertEquals(5 * 2 + 5 * 1 + 4 * 4 + 3 * 5 + 1 * 6, placements.size)
+        // Row-major order inside one size.
+        assertArrayEquals(intArrayOf(0, 1, 2, 3, 4), placements[0].cells)
+        assertArrayEquals(intArrayOf(1, 2, 3, 4, 5), placements[1].cells)
+        assertArrayEquals(intArrayOf(6, 7, 8, 9, 10), placements[2].cells)
+        assertArrayEquals(intArrayOf(0, 1, 2, 6, 7, 8), Shapes.rectanglePlacements(2, 3, 5, 6)[0])
+        assertEquals(4 * 4, Shapes.rectanglePlacements(2, 3, 5, 6).size)
+        assertEquals(0, Shapes.rectanglePlacements(6, 1, 5, 6).size)
+        // The whole board is the only placement for min = rows x cols.
+        assertEquals(listOf(30), Shapes.blobPlacements(30, 5, 6).map { it.cells.size })
+    }
+
+    @Test
+    fun blobPlacementsExistForEveryMinOnEveryBoardSize() {
+        for (rows in 3..9) for (cols in 3..9) for (min in 3..rows * cols) {
+            val placements = Shapes.blobPlacements(min, rows, cols)
+            assertTrue("min $min on ${cols}x$rows", placements.isNotEmpty())
+            for (p in placements) assertTrue(p.cells.size >= min)
+        }
+        // 73 on 9x9: no rectangle of 73 to 75 orbs, so the smallest area >= 73 (the whole board).
+        assertEquals(listOf(81), Shapes.blobPlacements(73, 9, 9).map { it.cells.size })
+    }
+
+    // --- colors: at least K distinct colours among the combos (REHA-12) ------------------------------
+
+    // One swap of r0c2 and r0c3 makes R R R B B B in row 0 (two colours); the three hearts are apart,
+    // so no single move makes a Heart combo. No initial match.
+    private val duo = "RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD" // R3 B3 G6 L7 D7 H3
+
+    private fun colors(count: Int, of: String? = null) =
+        if (of == null) Goal.Colors(count) else Goal.Colors(count, of.map { Orbs.code(it) })
+
+    /** Distinct colours of the combos that are in [of] (default: the 5 attributes). */
+    private fun distinctColors(combos: List<Combo>, of: String = "RBGLD") =
+        combos.map { it.color }.filter { it in of.map { c -> Orbs.code(c) } }.toSet().size
+
+    @Test
+    fun colorsThreePlusColoursOnTheThreeBoard() {
+        val s = assertSolved(three, listOf(colors(3)))
+        assertEquals(listOf(GoalResult("3+ colours", true)), s.result.goals)
+        assertTrue("${distinctColors(s.combos)} colours", distinctColors(s.combos) >= 3)
+    }
+
+    @Test
+    fun colorsImpossibleWhenFewerColoursOfTheSetHaveThreeOrbs() {
+        assertImpossible(rbg, listOf(colors(4)), listOf("4+ colours: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4"))
+        // Hearts are outside the default set; with them in the set the RBG board still has 3 (H2).
+        assertImpossible(
+            rbg, listOf(colors(4, "RBGH")),
+            listOf("4+ colours of Fire, Water, Wood, Heart: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4"),
+        )
+        // Colours outside the set do not count: only Fire of R, L, D has 3+ orbs on the RBG board.
+        assertImpossible(
+            rbg, listOf(colors(2, "RLD")),
+            listOf("2+ colours of Fire, Light, Dark: only 1 colour has 3 or more orbs (R), the goal needs 2"),
+        )
+        assertImpossible(rbg, listOf(colors(1, "LD")), listOf("1+ colours of Light, Dark: only 0 colours have 3 or more orbs, the goal needs 1"))
+    }
+
+    @Test
+    fun colorsSetWithHeartCountsAHeartCombo() {
+        val s = assertSolved(three, listOf(colors(2, "BH")))
+        assertEquals("2+ colours of Water, Heart", s.result.goals[0].label)
+        val found = s.combos.map { it.color }.toSet()
+        assertTrue("a Water and a Heart combo", Orbs.code('B') in found && Orbs.code('H') in found)
+    }
+
+    @Test
+    fun colorsOutsideTheSetDoNotCount() {
+        // One move makes Fire and Water combos: enough for the default set, not for Fire + Heart.
+        val s = assertSolved(duo, listOf(colors(2)), options.copy(maxMoves = 1))
+        assertEquals(1, s.result.moves)
+        val board = Board.parse(duo)
+        val unmet = Solver.solve(board, listOf(colors(2, "RH")), options.copy(maxMoves = 1))
+        assertEquals("partial", unmet.status)
+        assertEquals(listOf(false), unmet.goals.map { it.met })
+        // The order of the set does not change the result.
+        val reordered = Solver.solve(board, listOf(colors(2, "HR")), options.copy(maxMoves = 1))
+        assertEquals(unmet.path, reordered.path)
+    }
+
+    @Test
+    fun colorsUnmetWithOneMoveOnTheThreeBoard() {
+        assertUnmet(three, listOf(colors(3)))
+    }
+
+    @Test
+    fun colorsCountFromOneToSixAndANonEmptySetOfDistinctAttributes() {
+        for (count in listOf(0, 7, -1)) {
+            val e = assertThrows("count $count", IllegalArgumentException::class.java) { colors(count, "RBGLDH") }
+            assertEquals("Colour count must be from 1 to 6", e.message)
+        }
+        for (of in listOf(emptyList(), listOf(Orbs.code('J')), listOf(0, 0), listOf(-1), listOf(Orbs.COUNT))) {
+            val e = assertThrows("of $of", IllegalArgumentException::class.java) { Goal.Colors(1, of) }
+            assertEquals("Colour set must be a non-empty list of distinct colours R, B, G, L, D, H", e.message)
+        }
+        assertEquals(
+            "Colour count must be at most 2, the colours in the set",
+            assertThrows(IllegalArgumentException::class.java) { colors(3, "RB") }.message,
+        )
+        assertEquals(
+            "Colour count must be at most 5, the colours in the set",
+            assertThrows(IllegalArgumentException::class.java) { colors(6) }.message,
+        )
+        assertEquals(listOf(0, 1, 2, 3, 4), colors(3).set)
+        assertEquals(listOf(5, 0, 1, 2, 3, 4), colors(6, "HRBGLD").set)
+        assertEquals("3+ colours", colors(3).label)
+        // The default set in another order is still the default label.
+        assertEquals("5+ colours", colors(5, "DLGBR").label)
+        assertEquals("colors", colors(1).type)
+    }
+
+    // --- T shape (REHA-13) ----------------------------------------------------------------------------
+
+    // TEE of tools/pad-research/proposed-test-cases.json: moving the D at r3c1 up makes a T of Dark.
+    private val tee = "BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG" // R4 B5 G5 L5 D6 H5
+
+    // TEE with the D at r3c1 swapped one row down: the T needs two moves.
+    private val teeFar = "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG" // R4 B5 G5 L5 D6 H5
+
+    @Test
+    fun tshapeIsExactlyFiveOrbsThreeInALinePlusTwoFromItsMiddleInAnyOrientation() {
+        val ts = listOf(
+            listOf(at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1)), // stem down
+            listOf(at(0, 1), at(1, 1), at(2, 0), at(2, 1), at(2, 2)), // stem up
+            listOf(at(0, 0), at(1, 0), at(2, 0), at(1, 1), at(1, 2)), // stem right
+            listOf(at(0, 2), at(1, 2), at(2, 2), at(1, 1), at(1, 0)), // stem left
+        )
+        for (t in ts) {
+            assertTrue("T $t", has("tshape", t))
+            for (type in listOf("square", "cross", "lshape", "tpa")) assertFalse("a T is not a $type", has(type, t))
+        }
+        assertFalse("an L is not a T", has("tshape", listOf(at(0, 0), at(1, 0), at(2, 0), at(2, 1), at(2, 2))))
+        assertFalse("a cross is not a T", has("tshape", listOf(at(0, 1), at(1, 0), at(1, 1), at(1, 2), at(2, 1))))
+        assertFalse("6 orbs: a longer stem", has("tshape", listOf(at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1), at(3, 1))))
+        assertFalse("4 in a line plus 1", has("tshape", listOf(at(0, 0), at(0, 1), at(0, 2), at(0, 3), at(1, 1))))
+        // Exact shape: a T with one more orb of the colour attached is a 6-orb combo, not a T.
+        assertFalse("a T with one extra orb", has("tshape", ts[0] + at(1, 0)))
+        assertFalse("a T with a longer bar", has("tshape", ts[1] + at(2, 3)))
+        // Same shape away from the corner of the board.
+        assertTrue("T at r2c3", has("tshape", listOf(at(2, 3), at(2, 4), at(2, 5), at(3, 4), at(4, 4))))
+    }
+
+    @Test
+    fun tshapeSizeFiveNeedsAThreeByThreeBoardFourPlacementsPerWindow() {
+        assertTrue("tshape" in Shapes.TYPES)
+        assertEquals(5, Shapes.size("tshape", 5, 6))
+        assertTrue(Shapes.fits("tshape", 3, 3))
+        for ((r, c) in listOf(2 to 6, 6 to 2, 2 to 2, 1 to 9)) assertFalse("${c}x$r", Shapes.fits("tshape", r, c))
+        assertEquals(48, Shapes.placements("tshape", 5, 6).size)
+        assertEquals(2 * 3 * 4, Shapes.placements("tshape", 4, 5).size)
+        // Orientation order per window (decides ties; same as shapes.js): stem down, up, right, left.
+        val window = Shapes.placements("tshape", 3, 3)
+        assertEquals(
+            listOf(listOf(0, 1, 2, 4, 7), listOf(1, 4, 6, 7, 8), listOf(0, 3, 4, 5, 6), listOf(2, 3, 4, 5, 8)),
+            window.map { it.cells.toList() },
+        )
+        assertTrue(window.all { it.exact })
+        assertEquals("T shape of Dark", shape("tshape", 'D').label)
+    }
+
+    @Test
+    fun tshapeOfDarkOnTheTeeBoardInOneMove() {
+        val s = assertShapeGoal(tee, "tshape", 'D')
+        // One swap of r2c1 and r3c1. The research case wrote [19, 13] (D up); the solver holds the
+        // H and drags it down ([13, 19]), which leaves the same board.
+        assertEquals(1, s.result.moves)
+        assertEquals(listOf(13, 19), s.result.path.sorted())
+        assertEquals("column 1 rows 0-2 + row 2 columns 0-2: stem up", listOf(1, 7, 12, 13, 14), s.combo.cells.toList())
+        val reported = s.result.combos.first { it.color == 'D' && "tshape" in it.shapes }
+        assertEquals("not a cross, L, square or 4 in a line", listOf("tshape"), reported.shapes)
+    }
+
+    @Test
+    fun tshapeImpossibleWithFourFireUnmetWithOneMoveWhenTheTNeedsTwo() {
+        assertImpossible(tee, listOf(shape("tshape", 'R')), listOf("Fire: the goals need 5 orbs, the board has 4"))
+        assertImpossible("RRB\nGLD\nHBG", listOf(shape("tshape", 'R')), listOf("Fire: the goals need 5 orbs, the board has 2"))
+        assertUnmet(teeFar, listOf(shape("tshape", 'D')))
+        assertShapeGoal(teeFar, "tshape", 'D')
+    }
+
+    // --- blob with max: exactly N (or N to M) connected orbs (REHA-14) -------------------------------
+
+    // R6, no initial match. The R at r1c3 moved up-left to r0c2 makes a Fire combo of 6 (R R R R in
+    // row 0 plus r1c2, r2c2 below) and, with the G it swaps down, G G G in row 1: the only move that
+    // makes a Wood combo next to Fire. Other one-move Fire combos have 3, 4 or 5 orbs (e.g. the R at
+    // r0c3 moved left: R R R in row 0 plus r1c2, r2c2). B5 G6 L3 D5 H5.
+    private val six = "RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH"
+
+    // Only 3 (r3Only) or 4 (r4Only) Fire orbs; one move up of the R at r1c2 joins them in row 0.
+    private val r3Only = "RRGLBL\nDHRHLG\nBGLDHB\nLDHBGD\nGBLHDH"
+    private val r4Only = "RRGRBL\nDHRHLG\nBGLDHB\nLDHBGD\nGBLHDH"
+
+    private fun blob(color: Char, min: Int, max: Int?) = Goal.Blob(Orbs.code(color), min, max)
+
+    private fun fireSizes(combos: List<Combo>) = combos.filter { it.color == Orbs.code('R') }.map { it.cells.size }
+
+    private val oneMove get() = options.copy(maxMoves = 1)
+
+    @Test
+    fun blobMaxExactlyFiveFireOnTheBlobBoardInOneMove() {
+        val s = assertSolved(blobBoard, listOf(blob('R', 5, 5)))
+        assertEquals(listOf(GoalResult("exactly 5 Fire", true)), s.result.goals)
+        assertEquals(1, s.result.moves)
+        assertEquals(listOf(5), fireSizes(s.combos))
+    }
+
+    @Test
+    fun blobMaxImpossibleFromOrbCountsWithoutSearching() {
+        assertImpossible(blobBoard, listOf(blob('G', 6, 6)), listOf("Wood: the goals need 6 orbs, the board has 5"))
+    }
+
+    @Test
+    fun blobMaxComboLargerThanMaxDoesNotMeetTheGoal() {
+        // The diagonal move: Fire x6 and Wood x3, so 6+ Fire and 3+ Wood together are met.
+        assertEquals(listOf(6), fireSizes(assertSolved(six, listOf(blob('R', 6), blob('G', 3)), oneMove).combos))
+        // Exactly 5 alone is still solved, with another move (the R at r0c3 moved left).
+        val exact = assertSolved(six, listOf(blob('R', 5, 5)), oneMove)
+        assertEquals(listOf(GoalResult("exactly 5 Fire", true)), exact.result.goals)
+        assertEquals(listOf(5), fireSizes(exact.combos))
+        // Exactly 5 Fire plus 3+ Wood: only the diagonal move makes Wood, and its Fire combo of 6 is
+        // too big. If 6 counted for "exactly 5" that move would meet both goals.
+        val board = Board.parse(six)
+        val result = Solver.solve(board, listOf(blob('R', 5, 5), blob('G', 3)), oneMove)
+        assertEquals("partial", result.status)
+        assertEquals(1, result.goals.count { it.met })
+        assertEquals(5 in fireSizes(replay(board, result)), result.goals[0].met)
+        // 5 to 6 accepts the combo of 6.
+        val ranged = assertSolved(six, listOf(blob('R', 5, 6), blob('G', 3)), oneMove)
+        assertEquals(listOf("5-6 Fire connected", "3+ Wood connected"), ranged.result.goals.map { it.label })
+        assertEquals(listOf(6), fireSizes(ranged.combos))
+    }
+
+    @Test
+    fun blobMaxRangeAcceptsCombosFromMinToMaxAndRejectsBiggerOnes() {
+        val range = blob('R', 3, 5)
+        // 3 Fire orbs: one move makes a combo of 3.
+        assertEquals(listOf(3), fireSizes(assertSolved(r3Only, listOf(range), oneMove).combos))
+        // 4 Fire orbs: the combo of 4 meets 4 to 5; with 3 to 5 a combo of 3 or 4 does.
+        assertEquals(listOf(4), fireSizes(assertSolved(r4Only, listOf(blob('R', 4, 5)), oneMove).combos))
+        assertTrue(fireSizes(assertSolved(r4Only, listOf(range), oneMove).combos).all { it in 3..5 })
+        // BLOB: one move makes Fire combos of 3 to 5; the combo of 5 meets 5 to 6.
+        val blobSolved = assertSolved(blobBoard, listOf(range), oneMove)
+        assertEquals(listOf(GoalResult("3-5 Fire connected", true)), blobSolved.result.goals)
+        assertTrue(fireSizes(blobSolved.combos).all { it in 3..5 })
+        assertEquals(listOf(5), fireSizes(assertSolved(blobBoard, listOf(blob('R', 5, 6)), oneMove).combos))
+        // The combo of 6 on SIX does not count: 3 to 5 Fire plus 3+ Wood is unmet in one move.
+        val board = Board.parse(six)
+        val result = Solver.solve(board, listOf(range, blob('G', 3)), oneMove)
+        assertEquals("partial", result.status)
+        assertEquals(1, result.goals.count { it.met })
+        assertEquals(fireSizes(replay(board, result)).any { it in 3..5 }, result.goals[0].met)
+    }
+
+    @Test
+    fun blobMaxMustBeFromMinToTheBoardSizeAndAbsentMeansNoUpperBound() {
+        assertEquals(5, blob('R', 5, 5).max)
+        assertNull(blob('R', 5).max)
+        assertEquals(blob('R', 5), blob('R', 5, null))
+        for (max in listOf(4, 0, -1)) {
+            val error = assertThrows("max $max", IllegalArgumentException::class.java) { blob('R', 5, max) }
+            assertEquals("Blob max must be >= min (5)", error.message)
+        }
+        assertThrows(IllegalArgumentException::class.java) { blob('R', 5, 82) }
+        val error = assertThrows(IllegalArgumentException::class.java) { Solver.solve(Board.parse(blobBoard), listOf(blob('R', 5, 31)), options) }
+        assertEquals("Blob max must be at most 30 on a 6x5 board", error.message)
+        assertEquals("exactly 5 Dark", blob('D', 5, 5).label)
+        assertEquals("5-7 Wood connected", blob('G', 5, 7).label)
+        assertEquals("5+ Wood connected", blob('G', 5, null).label)
+    }
+
+    @Test
+    fun blobMaxPlacementsAreExactRectanglesOfMinWhenMaxEqualsMin() {
+        // Exactly 5: 1x5 and 5x1 only, exact (border penalty like tpa).
+        val exact = Shapes.blobPlacements(5, 5, 6, 5)
+        assertEquals(5 * 2 + 6 * 1, exact.size)
+        for (p in exact) {
+            assertEquals(5, p.cells.size)
+            assertTrue(p.exact)
+        }
+        // 5 to 6: the no-max placements of up to 6 orbs, not exact.
+        val ranged = Shapes.blobPlacements(5, 5, 6, 6)
+        val expected = Shapes.blobPlacements(5, 5, 6).filter { it.cells.size <= 6 }
+        assertEquals(expected.map { it.cells.toList() }, ranged.map { it.cells.toList() })
+        assertTrue(ranged.none { it.exact })
+        // No rectangle of exactly 7 fits 6x5: fall back to the no-max placements, not exact.
+        assertEquals(
+            Shapes.blobPlacements(7, 5, 6).map { it.cells.toList() to it.exact },
+            Shapes.blobPlacements(7, 5, 6, 7).map { it.cells.toList() to it.exact },
+        )
+        for (rows in 3..9) for (cols in 3..9) for (min in 3..rows * cols) {
+            assertTrue("exactly $min on ${cols}x$rows", Shapes.blobPlacements(min, rows, cols, min).isNotEmpty())
+        }
     }
 }

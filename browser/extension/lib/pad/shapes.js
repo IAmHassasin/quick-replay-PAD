@@ -9,9 +9,10 @@
  * | `cross`  | exactly 5 orbs in a plus shape                     |
  * | `lshape` | exactly 5 orbs: 3 + 3 in lines sharing a corner    |
  * | `tpa`    | exactly 4 orbs in a straight line                  |
+ * | `tshape` | exactly 5 orbs: 3 in a line + 2 from its middle    |
  */
 
-export const SHAPE_TYPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa'];
+export const SHAPE_TYPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa', 'tshape'];
 
 export const SHAPE_LABELS = {
   row: 'Row',
@@ -20,6 +21,7 @@ export const SHAPE_LABELS = {
   cross: 'Cross',
   lshape: 'L shape',
   tpa: '4 in a line',
+  tshape: 'T shape',
 };
 
 /** Minimum number of orbs of the colour needed on the board for one shape. */
@@ -29,7 +31,8 @@ export function shapeSize(type, rows, cols) {
     case 'column': return rows;
     case 'square': return 9;
     case 'cross':
-    case 'lshape': return 5;
+    case 'lshape':
+    case 'tshape': return 5;
     case 'tpa': return 4;
     default: throw new Error(`Unknown shape: ${type}`);
   }
@@ -54,6 +57,7 @@ export function comboHasShape(type, cells, rows, cols) {
     case 'square': return n === 9 && boxSize(cells, cols) === '3x3';
     case 'cross': return n === 5 && boxSize(cells, cols) === '3x3' && isCross(cells, cols);
     case 'lshape': return n === 5 && boxSize(cells, cols) === '3x3' && isL(cells, cols);
+    case 'tshape': return n === 5 && boxSize(cells, cols) === '3x3' && isT(cells, cols);
     case 'tpa': {
       if (n !== 4) return false;
       const box = boxSize(cells, cols);
@@ -109,6 +113,28 @@ function isL(cells, cols) {
 }
 
 /**
+ * The 4 T shapes in the 3x3 window at (r, c), each as [row, col] cells: a bar of 3 on one edge and
+ * a stem of 2 from its middle. Order (decides ties in the solver; Shapes.kt keeps it): stem down,
+ * stem up, stem right, stem left.
+ */
+function tCells(r, c) {
+  return [
+    [[r, c], [r, c + 1], [r, c + 2], [r + 1, c + 1], [r + 2, c + 1]],
+    [[r + 2, c], [r + 2, c + 1], [r + 2, c + 2], [r + 1, c + 1], [r, c + 1]],
+    [[r, c], [r + 1, c], [r + 2, c], [r + 1, c + 1], [r + 1, c + 2]],
+    [[r, c + 2], [r + 1, c + 2], [r + 2, c + 2], [r + 1, c + 1], [r + 1, c]],
+  ];
+}
+
+function isT(cells, cols) {
+  // Called with 5 cells in a 3x3 box: a T is the box's top-left window holding one of the 4 Ts.
+  const set = new Set(cells);
+  const top = Math.min(...cells.map((i) => Math.floor(i / cols)));
+  const left = Math.min(...cells.map((i) => i % cols));
+  return tCells(top, left).some((t) => t.every(([r, c]) => set.has(r * cols + c)));
+}
+
+/**
  * All placements of a shape on the board: the target cells the solver tries to fill with the
  * goal colour. `exact` placements must not touch other matched orbs of the same colour.
  * @returns {Array<{cells: number[], exact: boolean}>}
@@ -151,6 +177,13 @@ export function shapePlacements(type, rows, cols) {
         }
       }
       break;
+    case 'tshape':
+      for (let r = 0; r + 3 <= rows; r++) {
+        for (let c = 0; c + 3 <= cols; c++) {
+          for (const t of tCells(r, c)) add(t.map(([tr, tc]) => at(tr, tc)), true);
+        }
+      }
+      break;
     case 'tpa':
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c + 4 <= cols; c++) add([0, 1, 2, 3].map((k) => at(r, c + k)), true);
@@ -161,6 +194,57 @@ export function shapePlacements(type, rows, cols) {
       break;
     default:
       throw new Error(`Unknown shape: ${type}`);
+  }
+  return out;
+}
+
+/**
+ * All `h` x `w` rectangles that fit on the board, row-major (top row first, then left column
+ * first). Each rectangle is its sorted cell indices.
+ * @returns {number[][]}
+ */
+export function rectanglePlacements(h, w, rows, cols) {
+  const out = [];
+  for (let r = 0; r + h <= rows; r++) {
+    for (let c = 0; c + w <= cols; c++) {
+      const cells = [];
+      for (let dr = 0; dr < h; dr++) for (let dc = 0; dc < w; dc++) cells.push((r + dr) * cols + c + dc);
+      out.push(cells);
+    }
+  }
+  return out;
+}
+
+/** Blob placements may be up to this many orbs larger than the goal's `min`. */
+const BLOB_SLACK = 2;
+
+/**
+ * Target areas for a `blob` goal (one combo of `min` to `max` connected orbs; `max` absent =
+ * no upper bound): every filled rectangle with `min <= h * w <= min + 2`, `h * w <= max` and a
+ * side of at least 3 (a combo needs 3 in a line), enumerated by height, then width, then row,
+ * then column. When no rectangle is that close to `min` (e.g. 73 on 9x9), the rectangles of the
+ * smallest area >= `min` (and <= `max`) are used instead. `exact` (border penalty, like `tpa`)
+ * only when `max === min`: then a bigger combo misses the goal. When no rectangle has
+ * `min..max` orbs (e.g. exactly 7 on 6x5), the placements without `max` are used, not exact;
+ * the goal check still rejects bigger combos. The Kotlin port must keep this order (it decides
+ * ties in the solver's scoring).
+ * @returns {Array<{cells: number[], exact: boolean}>}
+ */
+export function blobPlacements(min, rows, cols, max = Infinity) {
+  const sizes = [];
+  for (let h = 1; h <= rows; h++) {
+    for (let w = 1; w <= cols; w++) {
+      if (h * w >= min && h * w <= max && Math.max(h, w) >= 3) sizes.push([h, w]);
+    }
+  }
+  if (sizes.length === 0) return blobPlacements(min, rows, cols);
+  const exact = max === min;
+  let limit = min + BLOB_SLACK;
+  if (!sizes.some(([h, w]) => h * w <= limit)) limit = Math.min(...sizes.map(([h, w]) => h * w));
+  const out = [];
+  for (const [h, w] of sizes) {
+    if (h * w > limit) continue;
+    for (const cells of rectanglePlacements(h, w, rows, cols)) out.push({ cells, exact });
   }
   return out;
 }

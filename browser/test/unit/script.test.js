@@ -182,6 +182,159 @@ test('android scripts may have solve steps with a pad setup (PAD fork)', () => {
   assert.deepEqual(validateScript({ ...script, pad: { ...pad, goals: [] } }), ['pad.goals must be a non-empty array']);
   assert.match(validateScript({ ...script, pad: { ...pad, goals: [{ type: 'row', color: 'J' }] } })[0], /pad\.goals\[0\]/);
   assert.deepEqual(validateScript({ ...script, pad: { ...pad, msPerMove: 5 } }), ['pad.msPerMove must be an integer from 10 to 1000']);
+  // Blob goals: a colour and a size from 3 to rows x cols (6x5 when the size is absent).
+  const withGoal = (goal, size = {}) => validateScript({ ...script, pad: { ...pad, ...size, goals: [goal] } });
+  assert.deepEqual(withGoal({ type: 'blob', color: 'R', min: 5 }), []);
+  assert.deepEqual(withGoal({ type: 'blob', color: 'H', min: 30 }), []);
+  assert.deepEqual(withGoal({ type: 'blob', color: 'H', min: 42 }, { rows: 6, cols: 7 }), []);
+  for (const goal of [
+    { type: 'blob', color: 'R', min: 2 },
+    { type: 'blob', color: 'R', min: 31 },
+    { type: 'blob', color: 'R', min: 5.5 },
+    { type: 'blob', color: 'R' },
+    { type: 'blob', color: 'J', min: 5 },
+  ]) {
+    assert.match(withGoal(goal)[0] ?? '', /pad\.goals\[0\]/, JSON.stringify(goal));
+  }
   // Browser scripts cannot solve.
   assert.match(validateScript({ ...browserScript(), steps: [{ type: 'solve' }] })[0], /not allowed for this platform/);
+});
+
+test('the script schema has the blob goal: a colour and a size >= 3', () => {
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const branches = schema.$defs.goal.oneOf;
+  const blob = branches.find((b) => b.properties.type.const === 'blob');
+  assert.ok(blob, 'a blob branch in $defs.goal.oneOf');
+  assert.deepEqual(blob.required, ['type', 'color', 'min']);
+  assert.deepEqual(blob.properties.color.enum, ['R', 'B', 'G', 'L', 'D', 'H']);
+  assert.deepEqual(blob.properties.min, { type: 'integer', minimum: 3, maximum: 81 });
+  // The shape branch must not accept "blob".
+  assert.ok(!branches.some((b) => b !== blob && (b.properties.type.enum ?? [b.properties.type.const]).includes('blob')));
+});
+
+const colorsScript = (goal) => ({
+  ...androidScript(),
+  pad: { goals: [goal] },
+  steps: [{ type: 'solve' }],
+});
+
+/** The keywords the schema's goal branches use; enough to check examples without a validator. */
+function matchesSchema(node, value) {
+  if (node.type === 'object' && (typeof value !== 'object' || value === null || Array.isArray(value))) return false;
+  if (node.type === 'array' && !Array.isArray(value)) return false;
+  if (node.type === 'integer' && !Number.isInteger(value)) return false;
+  if ('const' in node && value !== node.const) return false;
+  if (node.enum && !node.enum.includes(value)) return false;
+  if (node.minimum !== undefined && value < node.minimum) return false;
+  if (node.maximum !== undefined && value > node.maximum) return false;
+  if (node.minItems !== undefined && value.length < node.minItems) return false;
+  if (node.uniqueItems && new Set(value).size !== value.length) return false;
+  if (node.items && !value.every((item) => matchesSchema(node.items, item))) return false;
+  if (node.required && !node.required.every((key) => key in value)) return false;
+  if (node.properties) {
+    for (const [key, sub] of Object.entries(node.properties)) if (key in value && !matchesSchema(sub, value[key])) return false;
+  }
+  return true;
+}
+
+test('colors goals: count 1-6 and an optional set of distinct colour letters (REHA-12)', () => {
+  for (const goal of [
+    { type: 'colors', count: 3 },
+    { type: 'colors', count: 5 },
+    { type: 'colors', count: 1, of: ['H'] },
+    { type: 'colors', count: 6, of: ['R', 'B', 'G', 'L', 'D', 'H'] },
+    { type: 'colors', count: 2, of: ['H', 'B'] },
+  ]) {
+    assert.deepEqual(validateScript(colorsScript(goal)), [], JSON.stringify(goal));
+  }
+  for (const goal of [
+    { type: 'colors', count: 0 },
+    { type: 'colors', count: 7 },
+    { type: 'colors', count: 2.5 },
+    { type: 'colors' },
+    { type: 'colors', count: 6 }, // the default set has 5 colours
+    { type: 'colors', count: 1, of: [] },
+    { type: 'colors', count: 1, of: ['J'] },
+    { type: 'colors', count: 1, of: ['r'] },
+    { type: 'colors', count: 1, of: ['R', 'R'] },
+    { type: 'colors', count: 1, of: 'RB' },
+    { type: 'colors', count: 3, of: ['R', 'B'] },
+  ]) {
+    assert.match(validateScript(colorsScript(goal))[0] ?? '', /pad\.goals\[0\]/, JSON.stringify(goal));
+  }
+});
+
+test('the script schema has the colors goal: count 1-6 and an optional colour set', () => {
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const branches = schema.$defs.goal.oneOf;
+  const colors = branches.find((b) => b.properties.type.const === 'colors');
+  assert.ok(colors, 'a colors branch in $defs.goal.oneOf');
+  assert.deepEqual(colors.required, ['type', 'count']);
+  const matching = (goal) => branches.filter((b) => matchesSchema(b, goal)).length;
+  for (const goal of [
+    { type: 'colors', count: 3 },
+    { type: 'colors', count: 6, of: ['R', 'B', 'G', 'L', 'D', 'H'] },
+    { type: 'colors', count: 2, of: ['B', 'H'] },
+  ]) {
+    assert.equal(matching(goal), 1, JSON.stringify(goal));
+  }
+  for (const goal of [
+    { type: 'colors', count: 0 },
+    { type: 'colors', count: 7 },
+    { type: 'colors' },
+    { type: 'colors', count: 2, of: [] },
+    { type: 'colors', count: 2, of: ['R', 'R'] },
+    { type: 'colors', count: 2, of: ['R', 'J'] },
+  ]) {
+    assert.equal(matching(goal), 0, JSON.stringify(goal));
+  }
+  // The existing goals still match exactly one branch.
+  for (const goal of [{ type: 'row', color: 'L' }, { type: 'combos', count: 7 }, { type: 'blob', color: 'R', min: 5 }]) {
+    assert.equal(matching(goal), 1, JSON.stringify(goal));
+  }
+});
+
+test('tshape goals: a shape goal with a colour, in the validator and the schema (REHA-13)', () => {
+  const goal = { type: 'tshape', color: 'D' };
+  assert.deepEqual(validateScript(colorsScript(goal)), []);
+  assert.match(validateScript(colorsScript({ type: 'tshape' }))[0] ?? '', /pad\.goals\[0\]/);
+  assert.match(validateScript(colorsScript({ type: 'tshape', color: 'J' }))[0] ?? '', /pad\.goals\[0\]/);
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const matching = schema.$defs.goal.oneOf.filter((branch) => matchesSchema(branch, goal));
+  assert.equal(matching.length, 1, 'exactly one goal branch accepts a tshape goal');
+  assert.ok(matching[0].properties.type.enum.includes('tshape'));
+  assert.ok(!schema.$defs.goal.oneOf.some((branch) => matchesSchema(branch, { type: 'tshape' })), 'a colour is required');
+});
+
+test('blob max: an optional integer from min to rows x cols, in the validator and the schema (REHA-14)', () => {
+  for (const goal of [
+    { type: 'blob', color: 'R', min: 5, max: 5 },
+    { type: 'blob', color: 'R', min: 3, max: 5 },
+    { type: 'blob', color: 'H', min: 5, max: 30 },
+    { type: 'blob', color: 'R', min: 5 },
+  ]) {
+    assert.deepEqual(validateScript(colorsScript(goal)), [], JSON.stringify(goal));
+  }
+  for (const goal of [
+    { type: 'blob', color: 'R', min: 5, max: 4 },
+    { type: 'blob', color: 'R', min: 5, max: 31 },
+    { type: 'blob', color: 'R', min: 5, max: 5.5 },
+    { type: 'blob', color: 'R', min: 5, max: '5' },
+    { type: 'blob', color: 'R', min: 5, max: null },
+  ]) {
+    assert.match(validateScript(colorsScript(goal))[0] ?? '', /pad\.goals\[0\]/, JSON.stringify(goal));
+  }
+  // The schema: max is an optional integer 3-81 (max >= min is checked by the apps, not the schema).
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const branches = schema.$defs.goal.oneOf;
+  const blob = branches.find((b) => b.properties.type.const === 'blob');
+  assert.deepEqual(blob.required, ['type', 'color', 'min']);
+  assert.deepEqual(blob.properties.max, { type: 'integer', minimum: 3, maximum: 81 });
+  const matching = (goal) => branches.filter((b) => matchesSchema(b, goal)).length;
+  for (const goal of [{ type: 'blob', color: 'R', min: 5, max: 5 }, { type: 'blob', color: 'R', min: 5 }]) {
+    assert.equal(matching(goal), 1, JSON.stringify(goal));
+  }
+  for (const goal of [{ type: 'blob', color: 'R', min: 5, max: 2 }, { type: 'blob', color: 'R', min: 5, max: 82 }, { type: 'blob', color: 'R', min: 5, max: 5.5 }]) {
+    assert.equal(matching(goal), 0, JSON.stringify(goal));
+  }
 });

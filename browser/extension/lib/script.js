@@ -10,7 +10,7 @@ export const PLATFORMS = Object.freeze(['android', 'browser']);
 export const BROWSER_STEP_TYPES = Object.freeze(['navigate', 'click', 'type', 'key', 'scroll', 'wait']);
 export const ANDROID_STEP_TYPES = Object.freeze(['tap', 'longPress', 'swipe', 'wait', 'solve']);
 /** Goal types and colours of the `pad` setup (android solve steps). */
-const PAD_SHAPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa'];
+const PAD_SHAPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa', 'tshape'];
 const PAD_COLORS = ['R', 'B', 'G', 'L', 'D', 'H'];
 export const MOUSE_BUTTONS = Object.freeze(['left', 'middle', 'right']);
 
@@ -130,11 +130,22 @@ function validatePad(pad, add) {
   if (!Array.isArray(pad.goals) || pad.goals.length === 0) {
     add('pad.goals must be a non-empty array');
   } else {
+    // A blob holds at most every orb of the board (6x5 when the size is absent or invalid).
+    const cells = (Number.isInteger(pad.rows) ? pad.rows : 5) * (Number.isInteger(pad.cols) ? pad.cols : 6);
     pad.goals.forEach((g, i) => {
-      const ok = isObject(g) && (g.type === 'combos'
-        ? Number.isInteger(g.count) && g.count >= 1
-        : PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color));
-      if (!ok) add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H } or { type: "combos", count: integer >= 1 }`);
+      let ok = false;
+      if (isObject(g) && g.type === 'combos') ok = Number.isInteger(g.count) && g.count >= 1;
+      else if (isObject(g) && g.type === 'blob') {
+        ok = PAD_COLORS.includes(g.color) && Number.isInteger(g.min) && g.min >= 3 && g.min <= cells
+          && (g.max === undefined || (Number.isInteger(g.max) && g.max >= g.min && g.max <= cells));
+      }
+      else if (isObject(g) && g.type === 'colors') ok = validColorsGoal(g);
+      else if (isObject(g)) ok = PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color);
+      if (!ok) {
+        add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H }, { type: "combos", count: integer >= 1 }`
+          + `, { type: "blob", color: R|B|G|L|D|H, min: integer from 3 to rows x cols, max?: integer from min to rows x cols }`
+          + ` or { type: "colors", count: integer from 1 to 6, of?: distinct R|B|G|L|D|H (at least count) }`);
+      }
     });
   }
   const ranges = [['rows', 3, 9], ['cols', 3, 9], ['maxMoves', 1, 50], ['timeLimitMs', 100, 10000], ['msPerMove', 10, 1000]];
@@ -145,6 +156,14 @@ function validatePad(pad, add) {
   }
   if (pad.diagonals !== undefined && typeof pad.diagonals !== 'boolean') add('pad.diagonals must be a boolean');
   if (pad.whenUnmet !== undefined && !['fail', 'dragBest'].includes(pad.whenUnmet)) add('pad.whenUnmet must be "fail" or "dragBest"');
+}
+
+/** `{ type: "colors", count, of? }`: count 1-6, `of` distinct colour letters, at least `count` of them. */
+function validColorsGoal(g) {
+  if (!Number.isInteger(g.count) || g.count < 1 || g.count > PAD_COLORS.length) return false;
+  if (g.of === undefined) return g.count <= 5;
+  return Array.isArray(g.of) && g.of.length >= g.count && new Set(g.of).size === g.of.length
+    && g.of.every((c) => PAD_COLORS.includes(c));
 }
 
 function validateStep(step, path, allowedTypes, add) {
