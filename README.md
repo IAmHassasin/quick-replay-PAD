@@ -32,7 +32,19 @@ The released APK is the **debug build** (signed with a debug key, not published 
 Play Protect may warn before installing. Updating from a build signed with a different key requires
 uninstalling the old app first; saved scripts are lost unless exported as JSON beforehand.
 
-To publish a new version: bump `versionCode` / `versionName` in `android/app/build.gradle.kts`,
+**In-app update (0.2.0+).** When the main screen opens (at most once every 6 hours) the app asks
+the GitHub API for the latest release. If its tag `v<version>` is newer than the installed version,
+a banner at the top offers **Update** (downloads `quick-replay-pad-<version>.apk` to the app cache,
+then opens the Android installer), **Later** (hides it until the next check) and **Skip this
+version**. Settings → **Check for updates** checks right away. The first update asks you to allow
+"Install unknown apps" for Quick Replay PAD. Drafts and pre-releases are ignored; a release without
+that APK name only gets an **Open Releases** button. This is the app's only network access: one
+request to `api.github.com` and the APK download from `github.com`, no token, no user data.
+Installing over the old app only works when both builds are signed with the same key (see below);
+otherwise Android refuses the update and you have to uninstall first.
+
+To publish a new version (the in-app update depends on the `v<version>` tag and the
+`quick-replay-pad-<version>.apk` asset name): bump `versionCode` / `versionName` in `android/app/build.gradle.kts`,
 run `./gradlew testDebugUnitTest exportApk`, then
 `gh release create v<version> "android/dist/quick-replay-pad-<version>.apk" --title "Quick Replay PAD v<version>"`
 (copy the exported `Quick Replay PAD <version>.apk` to that name first; GitHub replaces spaces in

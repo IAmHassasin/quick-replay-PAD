@@ -166,7 +166,19 @@ class AppSettings(context: Context) {
         } ?: PadSetup()
         set(value) = prefs.edit().putString(KEY_PAD_SETUP, value.toJson().toString()).apply()
 
+    /** Time (epoch ms) of the last successful update check; automatic checks wait 6 hours. */
+    var lastUpdateCheckAt: Long
+        get() = prefs.getLong(KEY_LAST_UPDATE_CHECK, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_UPDATE_CHECK, value).apply()
+
+    /** Version ("0.2.0") the user chose to skip in the update banner, or null. */
+    var skippedUpdateVersion: String?
+        get() = prefs.getString(KEY_SKIPPED_UPDATE, null)
+        set(value) = prefs.edit().putString(KEY_SKIPPED_UPDATE, value).apply()
+
     private companion object {
+        const val KEY_LAST_UPDATE_CHECK = "last_update_check_at"
+        const val KEY_SKIPPED_UPDATE = "skipped_update_version"
         const val KEY_PAD_SETUP = "pad_setup"
         const val KEY_DEFAULT_REPEAT = "default_repeat"
         const val KEY_SHOW_PLAYBACK = "show_playback_touches"

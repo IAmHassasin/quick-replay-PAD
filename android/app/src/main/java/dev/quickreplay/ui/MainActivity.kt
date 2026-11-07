@@ -2,6 +2,7 @@ package dev.quickreplay.ui
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -25,6 +26,12 @@ import dev.quickreplay.store.AppSettings
 import dev.quickreplay.store.ScriptStore
 import dev.quickreplay.store.StoredScript
 import dev.quickreplay.store.StoredSequence
+import dev.quickreplay.update.ApkProvider
+import dev.quickreplay.update.CheckResult
+import dev.quickreplay.update.UpdateController
+import dev.quickreplay.update.UpdatePolicy
+import dev.quickreplay.update.UpdateState
+import java.io.File
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -47,6 +54,16 @@ class MainActivity : Activity() {
     private lateinit var padSummary: TextView
     private lateinit var list: LinearLayout
     private lateinit var sequenceList: LinearLayout
+    private lateinit var scrollView: ScrollView
+    private lateinit var updateCard: LinearLayout
+    private lateinit var updateTitle: TextView
+    private lateinit var updateNotes: TextView
+    private lateinit var updateDetail: TextView
+    private lateinit var updateButtons: LinearLayout
+    private var lastUpdateState: UpdateState = UpdateState.Hidden
+
+    /** Set while the user is in "Install unknown apps" settings; the install continues on return. */
+    private var installAfterPermission = false
     private var pendingExport: PendingExport? = null
     private var resumed = false
 
@@ -66,6 +83,7 @@ class MainActivity : Activity() {
         }
         content.addView(Ui.text(this, "Quick Replay PAD", 24f, bold = true))
         content.addView(Ui.text(this, "Record and replay touches, solve Puzzle & Dragons boards. No limits, open source.", 13f, Ui.MUTED))
+        content.addView(updateCard(), Ui.spacedParams(this, 12))
 
         content.addView(
             Ui.buttonRow(
@@ -101,11 +119,16 @@ class MainActivity : Activity() {
         sequenceList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(sequenceList)
 
-        setContentView(ScrollView(this).apply {
+        scrollView = ScrollView(this).apply {
             fitsSystemWindows = true // keep content clear of the status and navigation bars
             setBackgroundColor(Ui.BG)
             addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        })
+        }
+        setContentView(scrollView)
+
+        installAfterPermission = savedInstanceState?.getBoolean(STATE_INSTALL_AFTER_PERMISSION) ?: false
+        UpdateController.deleteStaleApks(this)
+        scope.launch { UpdateController.state.collect(::renderUpdate) }
 
         scope.launch { ReplayState.flow.collect(::renderStatus) }
         // Playback and recording emit a state per step; the list (which parses every file) is only
@@ -127,6 +150,17 @@ class MainActivity : Activity() {
         renderPadSummary()
         renderStatus(ReplayState.flow.value)
         renderList()
+        if (installAfterPermission) {
+            installAfterPermission = false
+            val ready = UpdateController.state.value as? UpdateState.ReadyToInstall
+            if (ready != null && packageManager.canRequestPackageInstalls()) launchInstaller(ready.apk)
+        }
+        UpdateController.check(this, manual = false)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_INSTALL_AFTER_PERMISSION, installAfterPermission)
     }
 
     override fun onPause() {
@@ -174,8 +208,138 @@ class MainActivity : Activity() {
             Ui.text(this, "Each script has its own repeat count: tap Settings on a script below.", 12f, Ui.MUTED),
             Ui.spacedParams(this, 6),
         )
+        val version = UpdateController.currentVersion(this)?.let { "v$it" } ?: "unknown"
+        card.addView(Ui.text(this, "Version $version", 13f), Ui.spacedParams(this, 10))
+        card.addView(Ui.buttonRow(this, Ui.button(this, "Check for updates") { checkForUpdates() }), Ui.spacedParams(this, 6))
         renderDefaultRepeat()
         return card
+    }
+
+    /** Banner for a newer GitHub release; hidden until a check finds one. */
+    private fun updateCard(): LinearLayout {
+        updateCard = Ui.card(this).apply { visibility = android.view.View.GONE }
+        updateTitle = Ui.text(this, "", 15f, Ui.OK, bold = true)
+        updateNotes = Ui.text(this, "", 12f, Ui.MUTED)
+        updateDetail = Ui.text(this, "", 13f)
+        updateButtons = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        updateCard.addView(updateTitle)
+        updateCard.addView(updateNotes, Ui.spacedParams(this, 6))
+        updateCard.addView(updateDetail, Ui.spacedParams(this, 6))
+        updateCard.addView(updateButtons, Ui.spacedParams(this, 8))
+        return updateCard
+    }
+
+    private fun renderUpdate(state: UpdateState) {
+        val previous = lastUpdateState
+        lastUpdateState = state
+        updateButtons.removeAllViews()
+        val buttons: List<android.widget.Button>
+        when (state) {
+            UpdateState.Hidden -> {
+                updateCard.visibility = android.view.View.GONE
+                return
+            }
+            is UpdateState.Available -> {
+                val release = state.release
+                updateTitle.text = "Update available: v${release.version} (current v${state.current})"
+                showNotes(release.notes)
+                updateDetail.text = when {
+                    state.error != null -> "Download failed: ${state.error}"
+                    release.apk == null -> "This release has no APK for in-app update. Download it from the Releases page."
+                    else -> ""
+                }
+                val main = if (release.apk != null) {
+                    Ui.button(this, "Update", primary = true) { UpdateController.download(this) }
+                } else {
+                    Ui.button(this, "Open Releases", primary = true) { openUrl(release.htmlUrl) }
+                }
+                buttons = listOf(
+                    main,
+                    Ui.button(this, "Later") { UpdateController.dismiss() },
+                    Ui.button(this, "Skip this version") { UpdateController.skip(this, release.version) },
+                )
+            }
+            is UpdateState.Downloading -> {
+                updateTitle.text = "Downloading v${state.release.version}…"
+                showNotes("")
+                updateDetail.text = if (state.percent < 0) "Starting…" else "${state.percent}%"
+                buttons = listOf(Ui.button(this, "Cancel") { UpdateController.cancelDownload() })
+            }
+            is UpdateState.ReadyToInstall -> {
+                updateTitle.text = "v${state.release.version} is ready to install (current v${state.current})"
+                showNotes("")
+                updateDetail.text = "Android asks you to confirm the update."
+                buttons = listOf(
+                    Ui.button(this, "Install", primary = true) { install(state.apk) },
+                    Ui.button(this, "Later") { UpdateController.dismiss() },
+                )
+                // Open the installer right after a download finishes while the app is in front.
+                if (previous is UpdateState.Downloading && resumed) install(state.apk)
+            }
+        }
+        updateDetail.visibility = if (updateDetail.text.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        updateButtons.addView(Ui.buttonRow(this, *buttons.toTypedArray()))
+        updateCard.visibility = android.view.View.VISIBLE
+    }
+
+    private fun showNotes(notes: String) {
+        val text = UpdatePolicy.shortNotes(notes)
+        updateNotes.text = text
+        updateNotes.visibility = if (text.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+    }
+
+    private fun checkForUpdates() {
+        UpdateController.check(this, manual = true) { result ->
+            when (result) {
+                CheckResult.UP_TO_DATE -> toast("You are on the latest version")
+                CheckResult.FAILED -> toast("Could not check for updates. Check your internet connection.")
+                CheckResult.AVAILABLE -> scrollView.smoothScrollTo(0, 0)
+            }
+        }
+    }
+
+    /** Opens the system installer, first asking for "Install unknown apps" if it is not granted. */
+    private fun install(apk: File) {
+        if (packageManager.canRequestPackageInstalls()) {
+            launchInstaller(apk)
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Allow installing the update")
+            .setMessage(
+                "Android needs your permission for Quick Replay PAD to install updates. " +
+                    "Turn on \"Allow from this source\", then come back: the installation continues without downloading again.",
+            )
+            .setPositiveButton("Open settings") { _, _ ->
+                installAfterPermission = true
+                try {
+                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                } catch (e: ActivityNotFoundException) {
+                    installAfterPermission = false
+                    toast("Cannot open the settings for unknown apps")
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun launchInstaller(apk: File) {
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(ApkProvider.uriFor(this, apk), ApkProvider.MIME_APK)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            toast("No app can install the update")
+        }
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: ActivityNotFoundException) {
+            toast("No browser found")
+        }
     }
 
     private fun padCard(): LinearLayout {
@@ -502,5 +666,6 @@ class MainActivity : Activity() {
         const val REQUEST_IMPORT = 1
         const val REQUEST_EXPORT = 2
         const val MAX_IMPORT_BYTES = 50 * 1024 * 1024
+        const val STATE_INSTALL_AFTER_PERMISSION = "install_after_permission"
     }
 }
