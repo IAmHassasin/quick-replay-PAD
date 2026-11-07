@@ -42,13 +42,20 @@
   },
   "$defs": {
     "delay": { "type": "integer", "minimum": 0 },
+    "goalColor": {
+      "description": "A colour letter, or \"any\" (any letter case): the solver picks one of R, B, G, L, D for the goal; the Any goals of one list get different colours.",
+      "anyOf": [
+        { "enum": ["R", "B", "G", "L", "D", "H"] },
+        { "type": "string", "pattern": "^[Aa][Nn][Yy]$" }
+      ]
+    },
     "goal": {
       "oneOf": [
         {
           "type": "object",
           "properties": {
             "type": { "enum": ["row", "column", "square", "cross", "lshape", "tpa", "tshape"] },
-            "color": { "enum": ["R", "B", "G", "L", "D", "H"] }
+            "color": { "$ref": "#/$defs/goalColor" }
           },
           "required": ["type", "color"]
         },
@@ -62,7 +69,7 @@
           "description": "One combo of the colour with at least `min` and at most `max` connected orbs (both at most rows x cols; `max` absent = no upper bound, `max` = `min` = exactly that many). A repeated goal needs another combo. JSON Schema cannot compare two properties: `max` >= `min` is checked by the apps.",
           "properties": {
             "type": { "const": "blob" },
-            "color": { "enum": ["R", "B", "G", "L", "D", "H"] },
+            "color": { "$ref": "#/$defs/goalColor" },
             "min": { "type": "integer", "minimum": 3, "maximum": 81 },
             "max": { "type": "integer", "minimum": 3, "maximum": 81 }
           },

@@ -88,6 +88,9 @@ class PadSolverTest {
                 assertEquals(name, met, result.goals.map { it.met })
                 assertArrayEquals(name, applyPath(board.cells, result.path), result.afterDrag)
             }
+            // Any goals (REHA-16): the labels name the chosen colours; same assignments searched.
+            expected.optJSONArray("labels")?.let { assertEquals(name, it.toStrings(), result.goals.map { g -> g.label }) }
+            if (expected.has("assignments")) assertEquals(name, expected.getInt("assignments"), result.stats.assignments)
         }
     }
 
@@ -101,13 +104,14 @@ class PadSolverTest {
 
     private fun parseGoals(array: JSONArray): List<Goal> = List(array.length()) { i ->
         val g = array.getJSONObject(i)
+        fun color() = g.getString("color").let { if (it.equals("any", ignoreCase = true)) Orbs.ANY else Orbs.code(it[0]) }
         when (g.getString("type")) {
             "combos" -> Goal.Combos(g.getInt("count"))
-            "blob" -> Goal.Blob(Orbs.code(g.getString("color")[0]), g.getInt("min"), if (g.has("max")) g.getInt("max") else null)
+            "blob" -> Goal.Blob(color(), g.getInt("min"), if (g.has("max")) g.getInt("max") else null)
             "colors" -> g.optJSONArray("of")
                 ?.let { of -> Goal.Colors(g.getInt("count"), List(of.length()) { k -> Orbs.code(of.getString(k)[0]) }) }
                 ?: Goal.Colors(g.getInt("count"))
-            else -> Goal.Shape(g.getString("type"), Orbs.code(g.getString("color")[0]))
+            else -> Goal.Shape(g.getString("type"), color())
         }
     }
 

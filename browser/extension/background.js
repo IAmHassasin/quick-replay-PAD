@@ -3,7 +3,7 @@
  * message API used by the popup (and by the end-to-end tests through `globalThis.QuickReplay`).
  */
 import { ORB_LETTERS, cellLabel, formatBoard, parseBoard } from './lib/pad/board.js';
-import { normalizeGoals, solve } from './lib/pad/solver.js';
+import { ANY_COLOR, normalizeGoals, solve } from './lib/pad/solver.js';
 import { FORMAT, normalizeScript, validateScript } from './lib/script.js';
 import { Dragger, readBoard } from './pad-runner.js';
 import { Player } from './player.js';
@@ -303,7 +303,7 @@ function checkPadSettings(input) {
   const goals = normalizeGoals(s.goals).map((g) => {
     if (g.type === 'combos') return g;
     if (g.type === 'colors') return { ...g, of: g.of.map((code) => ORB_LETTERS[code]) };
-    return { ...g, color: ORB_LETTERS[g.color] };
+    return { ...g, color: g.color === ANY_COLOR ? 'any' : ORB_LETTERS[g.color] };
   });
   // Solve & drag must only run for goals the user chose.
   if (goals.length === 0) throw new Error('Add at least one goal');

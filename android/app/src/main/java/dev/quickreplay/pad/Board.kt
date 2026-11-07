@@ -16,6 +16,19 @@ object Orbs {
     /** Number of attribute colours (R B G L D H) that can be goal colours. */
     const val ATTRIBUTES = 6
 
+    /**
+     * Colour of a shape or blob goal whose colour the solver picks ("any" in JSON, any letter case):
+     * one of [ANY_COLORS], pairwise different for the Any goals of one list; an Any goal may take the
+     * colour of a goal with a fixed colour. Same value as `ANY_COLOR` in solver.js.
+     */
+    const val ANY = -1
+
+    /** Colours an Any goal may become: the 5 attributes R, B, G, L, D (not Heart). */
+    val ANY_COLORS = listOf(0, 1, 2, 3, 4)
+
+    /** Name of a goal colour in labels: the orb name, or "any colour". */
+    fun goalName(color: Int): String = if (color == ANY) "any colour" else NAMES[color]
+
     /** Orb code of a letter (case-insensitive), or -1. */
     fun code(letter: Char): Int = LETTERS.indexOf(letter.uppercaseChar())
 }

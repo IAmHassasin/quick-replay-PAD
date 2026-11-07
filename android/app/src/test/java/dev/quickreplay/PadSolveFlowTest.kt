@@ -161,11 +161,11 @@ class PadSolveFlowTest {
         val noSetup = json.replace(Regex("\"pad\": \\{[^}]*\\[[^]]*][^}]*\\},?"), "")
         assertFormatError(noSetup, "pad is required for solve steps")
         assertFormatError(json.replace("\"msPerMove\": 150", "\"msPerMove\": 5"), "pad: Drag time per move must be from 10 to 1000 ms")
-        assertFormatError(json.replace("\"color\": \"D\"", "\"color\": \"J\""), "pad: pad.goals[1].color must be one of R, B, G, L, D, H")
+        assertFormatError(json.replace("\"color\": \"D\"", "\"color\": \"J\""), "pad: pad.goals[1].color must be one of R, B, G, L, D, H or any")
         // Same strictness as the browser validator and the schema: no strings, fractions or lower case.
         assertFormatError(json.replace("\"msPerMove\": 150", "\"msPerMove\": \"150\""), "pad: pad.msPerMove must be an integer")
         assertFormatError(json.replace("\"msPerMove\": 150", "\"msPerMove\": 150.5"), "pad: pad.msPerMove must be an integer")
-        assertFormatError(json.replace("\"color\": \"D\"", "\"color\": \"d\""), "pad: pad.goals[1].color must be one of R, B, G, L, D, H")
+        assertFormatError(json.replace("\"color\": \"D\"", "\"color\": \"d\""), "pad: pad.goals[1].color must be one of R, B, G, L, D, H or any")
         assertFormatError(json.replace("\"diagonals\": false", "\"diagonals\": \"no\""), "pad: pad.diagonals must be a boolean")
         assertFormatError(json.replace(Regex("\"pad\": \\{[^}]*\\[[^]]*][^}]*\\}"), "\"pad\": 3"), "pad must be an object")
     }
@@ -187,7 +187,7 @@ class PadSolveFlowTest {
         assertFormatError(json.replace(min, "\"size\": 30"), "pad: pad.goals[2].min must be an integer >= 3")
         // At most rows x cols orbs: 30 on the default 6x5 board.
         assertFormatError(json.replace(min, "\"min\": 31"), "pad: Blob size must be at most 30 on a 6x5 board")
-        assertFormatError(json.replace("\"color\": \"H\"", "\"color\": \"J\""), "pad: pad.goals[2].color must be one of R, B, G, L, D, H")
+        assertFormatError(json.replace("\"color\": \"H\"", "\"color\": \"J\""), "pad: pad.goals[2].color must be one of R, B, G, L, D, H or any")
         // A 7x6 board allows 42.
         val big = PadSetup(goals = listOf(Goal.Blob(Orbs.code('H'), 42)), rows = 6, cols = 7)
         assertEquals(big, PadSetup.fromJson(big.toJson()))

@@ -263,8 +263,10 @@ function addGoalRow(goal) {
   type.append(new Option('Connected orbs (at least)', 'blob'));
   type.append(new Option('Colours (at least)', 'colors'));
   for (const letter of GOAL_COLORS) color.append(new Option(ORB_NAMES[ORB_LETTERS.indexOf(letter)], letter));
+  // The solver picks the colour (one of R, B, G, L, D; different for each Any goal).
+  color.append(new Option('Any', 'any'));
   type.value = goal.type;
-  color.value = goal.color ?? 'L';
+  color.value = typeof goal.color === 'string' && goal.color.toLowerCase() === 'any' ? 'any' : goal.color ?? 'L';
   count.value = String(goal.count ?? goal.min ?? DEFAULT_COMBO_GOAL);
   // The popup has no editor for the colour set of a `colors` goal; keep a stored one as it is.
   if (goal.type === 'colors' && Array.isArray(goal.of)) item.dataset.of = JSON.stringify(goal.of);
