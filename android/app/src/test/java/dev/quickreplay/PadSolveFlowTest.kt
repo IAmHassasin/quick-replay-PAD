@@ -222,6 +222,16 @@ class PadSolveFlowTest {
         assertFormatError(json.replace(of, "\"of\": [\"H\"]"), "pad: Colour count must be at most 1, the colours in the set")
     }
 
+    @Test
+    fun scriptJsonKeepsTshapeGoals() {
+        val setup = PadSetup(goals = listOf(Goal.Shape("tshape", Orbs.code('D'))))
+        val script = Script("tee", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"type\": \"tshape\""))
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("T shape of Dark · 150 ms/move", setup.summary())
+    }
+
     private fun assertFormatError(json: String, message: String) {
         try {
             ScriptJson.parse(json)

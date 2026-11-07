@@ -9,9 +9,10 @@
  * | `cross`  | exactly 5 orbs in a plus shape                     |
  * | `lshape` | exactly 5 orbs: 3 + 3 in lines sharing a corner    |
  * | `tpa`    | exactly 4 orbs in a straight line                  |
+ * | `tshape` | exactly 5 orbs: 3 in a line + 2 from its middle    |
  */
 
-export const SHAPE_TYPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa'];
+export const SHAPE_TYPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa', 'tshape'];
 
 export const SHAPE_LABELS = {
   row: 'Row',
@@ -20,6 +21,7 @@ export const SHAPE_LABELS = {
   cross: 'Cross',
   lshape: 'L shape',
   tpa: '4 in a line',
+  tshape: 'T shape',
 };
 
 /** Minimum number of orbs of the colour needed on the board for one shape. */
@@ -29,7 +31,8 @@ export function shapeSize(type, rows, cols) {
     case 'column': return rows;
     case 'square': return 9;
     case 'cross':
-    case 'lshape': return 5;
+    case 'lshape':
+    case 'tshape': return 5;
     case 'tpa': return 4;
     default: throw new Error(`Unknown shape: ${type}`);
   }
@@ -54,6 +57,7 @@ export function comboHasShape(type, cells, rows, cols) {
     case 'square': return n === 9 && boxSize(cells, cols) === '3x3';
     case 'cross': return n === 5 && boxSize(cells, cols) === '3x3' && isCross(cells, cols);
     case 'lshape': return n === 5 && boxSize(cells, cols) === '3x3' && isL(cells, cols);
+    case 'tshape': return n === 5 && boxSize(cells, cols) === '3x3' && isT(cells, cols);
     case 'tpa': {
       if (n !== 4) return false;
       const box = boxSize(cells, cols);
@@ -109,6 +113,28 @@ function isL(cells, cols) {
 }
 
 /**
+ * The 4 T shapes in the 3x3 window at (r, c), each as [row, col] cells: a bar of 3 on one edge and
+ * a stem of 2 from its middle. Order (decides ties in the solver; Shapes.kt keeps it): stem down,
+ * stem up, stem right, stem left.
+ */
+function tCells(r, c) {
+  return [
+    [[r, c], [r, c + 1], [r, c + 2], [r + 1, c + 1], [r + 2, c + 1]],
+    [[r + 2, c], [r + 2, c + 1], [r + 2, c + 2], [r + 1, c + 1], [r, c + 1]],
+    [[r, c], [r + 1, c], [r + 2, c], [r + 1, c + 1], [r + 1, c + 2]],
+    [[r, c + 2], [r + 1, c + 2], [r + 2, c + 2], [r + 1, c + 1], [r + 1, c]],
+  ];
+}
+
+function isT(cells, cols) {
+  // Called with 5 cells in a 3x3 box: a T is the box's top-left window holding one of the 4 Ts.
+  const set = new Set(cells);
+  const top = Math.min(...cells.map((i) => Math.floor(i / cols)));
+  const left = Math.min(...cells.map((i) => i % cols));
+  return tCells(top, left).some((t) => t.every(([r, c]) => set.has(r * cols + c)));
+}
+
+/**
  * All placements of a shape on the board: the target cells the solver tries to fill with the
  * goal colour. `exact` placements must not touch other matched orbs of the same colour.
  * @returns {Array<{cells: number[], exact: boolean}>}
@@ -148,6 +174,13 @@ export function shapePlacements(type, rows, cols) {
             const dc = cc === c ? 1 : -1;
             add([at(cr, cc), at(cr + dr, cc), at(cr + 2 * dr, cc), at(cr, cc + dc), at(cr, cc + 2 * dc)], true);
           }
+        }
+      }
+      break;
+    case 'tshape':
+      for (let r = 0; r + 3 <= rows; r++) {
+        for (let c = 0; c + 3 <= cols; c++) {
+          for (const t of tCells(r, c)) add(t.map(([tr, tc]) => at(tr, tc)), true);
         }
       }
       break;

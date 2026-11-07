@@ -1566,6 +1566,149 @@
         "afterDrag": "LHDGHL\nDLBBHR\nHLBBRG\nGGGGGG\nHLHHBH",
         "rounds": 1
       }
+    },
+    {
+      "name": "tee tshape D",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          13,
+          19
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee tshape R impossible",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "R"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Fire: the goals need 5 orbs, the board has 4"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "tee far tshape D one move unmet",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          12,
+          13
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nHDDGBL\nLBRBGH\nRDLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee far tshape D",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          25,
+          19,
+          13
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "tee far tshape D no diagonals",
+      "board": "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "D"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          25,
+          19,
+          13
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "BDGLRH\nGDBHLR\nDDDGBL\nLHRBGH\nRBLHDG",
+        "rounds": 1
+      }
     }
   ]
 }

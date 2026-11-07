@@ -608,4 +608,73 @@ class PadMatchStyleTest {
         assertEquals("5+ colours", colors(5, "DLGBR").label)
         assertEquals("colors", colors(1).type)
     }
+
+    // --- T shape (REHA-13) ----------------------------------------------------------------------------
+
+    // TEE of tools/pad-research/proposed-test-cases.json: moving the D at r3c1 up makes a T of Dark.
+    private val tee = "BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG" // R4 B5 G5 L5 D6 H5
+
+    // TEE with the D at r3c1 swapped one row down: the T needs two moves.
+    private val teeFar = "BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG" // R4 B5 G5 L5 D6 H5
+
+    @Test
+    fun tshapeIsExactlyFiveOrbsThreeInALinePlusTwoFromItsMiddleInAnyOrientation() {
+        val ts = listOf(
+            listOf(at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1)), // stem down
+            listOf(at(0, 1), at(1, 1), at(2, 0), at(2, 1), at(2, 2)), // stem up
+            listOf(at(0, 0), at(1, 0), at(2, 0), at(1, 1), at(1, 2)), // stem right
+            listOf(at(0, 2), at(1, 2), at(2, 2), at(1, 1), at(1, 0)), // stem left
+        )
+        for (t in ts) {
+            assertTrue("T $t", has("tshape", t))
+            for (type in listOf("square", "cross", "lshape", "tpa")) assertFalse("a T is not a $type", has(type, t))
+        }
+        assertFalse("an L is not a T", has("tshape", listOf(at(0, 0), at(1, 0), at(2, 0), at(2, 1), at(2, 2))))
+        assertFalse("a cross is not a T", has("tshape", listOf(at(0, 1), at(1, 0), at(1, 1), at(1, 2), at(2, 1))))
+        assertFalse("6 orbs: a longer stem", has("tshape", listOf(at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1), at(3, 1))))
+        assertFalse("4 in a line plus 1", has("tshape", listOf(at(0, 0), at(0, 1), at(0, 2), at(0, 3), at(1, 1))))
+        // Exact shape: a T with one more orb of the colour attached is a 6-orb combo, not a T.
+        assertFalse("a T with one extra orb", has("tshape", ts[0] + at(1, 0)))
+        assertFalse("a T with a longer bar", has("tshape", ts[1] + at(2, 3)))
+        // Same shape away from the corner of the board.
+        assertTrue("T at r2c3", has("tshape", listOf(at(2, 3), at(2, 4), at(2, 5), at(3, 4), at(4, 4))))
+    }
+
+    @Test
+    fun tshapeSizeFiveNeedsAThreeByThreeBoardFourPlacementsPerWindow() {
+        assertTrue("tshape" in Shapes.TYPES)
+        assertEquals(5, Shapes.size("tshape", 5, 6))
+        assertTrue(Shapes.fits("tshape", 3, 3))
+        for ((r, c) in listOf(2 to 6, 6 to 2, 2 to 2, 1 to 9)) assertFalse("${c}x$r", Shapes.fits("tshape", r, c))
+        assertEquals(48, Shapes.placements("tshape", 5, 6).size)
+        assertEquals(2 * 3 * 4, Shapes.placements("tshape", 4, 5).size)
+        // Orientation order per window (decides ties; same as shapes.js): stem down, up, right, left.
+        val window = Shapes.placements("tshape", 3, 3)
+        assertEquals(
+            listOf(listOf(0, 1, 2, 4, 7), listOf(1, 4, 6, 7, 8), listOf(0, 3, 4, 5, 6), listOf(2, 3, 4, 5, 8)),
+            window.map { it.cells.toList() },
+        )
+        assertTrue(window.all { it.exact })
+        assertEquals("T shape of Dark", shape("tshape", 'D').label)
+    }
+
+    @Test
+    fun tshapeOfDarkOnTheTeeBoardInOneMove() {
+        val s = assertShapeGoal(tee, "tshape", 'D')
+        // One swap of r2c1 and r3c1. The research case wrote [19, 13] (D up); the solver holds the
+        // H and drags it down ([13, 19]), which leaves the same board.
+        assertEquals(1, s.result.moves)
+        assertEquals(listOf(13, 19), s.result.path.sorted())
+        assertEquals("column 1 rows 0-2 + row 2 columns 0-2: stem up", listOf(1, 7, 12, 13, 14), s.combo.cells.toList())
+        val reported = s.result.combos.first { it.color == 'D' && "tshape" in it.shapes }
+        assertEquals("not a cross, L, square or 4 in a line", listOf("tshape"), reported.shapes)
+    }
+
+    @Test
+    fun tshapeImpossibleWithFourFireUnmetWithOneMoveWhenTheTNeedsTwo() {
+        assertImpossible(tee, listOf(shape("tshape", 'R')), listOf("Fire: the goals need 5 orbs, the board has 4"))
+        assertImpossible("RRB\nGLD\nHBG", listOf(shape("tshape", 'R')), listOf("Fire: the goals need 5 orbs, the board has 2"))
+        assertUnmet(teeFar, listOf(shape("tshape", 'D')))
+        assertShapeGoal(teeFar, "tshape", 'D')
+    }
 }

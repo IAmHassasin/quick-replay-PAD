@@ -39,8 +39,8 @@ The popup's **PAD solver** panel solves a Puzzle & Dragons board on the
 
 1. Open `https://pad.dawnglare.com/` (or `?patt=LGHLBB...` with 30 orb letters for a fixed
    board) and keep it as the active tab.
-2. In the popup, set the goals: Row, Column, 3x3 square, Cross, L shape, 4 in a line (each for
-   one colour), "Combos (at least)", or "Connected orbs (at least)" (one combo of a colour with at
+2. In the popup, set the goals: Row, Column, 3x3 square, Cross, L shape, 4 in a line, T shape
+   (each for one colour), "Combos (at least)", or "Connected orbs (at least)" (one combo of a colour with at
    least N orbs; add it twice for two such combos), or "Colours (at least)" (combos of at least N
    different colours among Fire, Water, Wood, Light and Dark; a script's `of` list can change the
    set, e.g. add Heart). Several goals can be combined.

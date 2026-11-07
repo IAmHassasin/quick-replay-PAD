@@ -173,6 +173,7 @@ before relying on it.
 | 3×3 square | Combo is **exactly** 9 orbs in a 3×3 block | Void damage piercer (VDP) |
 | Cross | Exactly 5 orbs in a plus shape | Heart cross, cross leaders |
 | L shape | Exactly 5 orbs, 3+3 sharing a corner | L-shape awakenings |
+| T shape (`tshape`) | Exactly 5 orbs in a 3×3 box: 3 in a line plus 2 from its middle, any orientation | T字消し攻撃 awakening (T-shape leaders) |
 | 4 in a line | Exactly 4 orbs | Two-pronged attack (TPA) |
 | Column | Full vertical line | Some leader skills (verify) |
 | Blob (goal `blob`, `min` N) | At least N connected orbs in one combo, any shape | "N+ connected" leaders; a colour set = one blob `min` 3 per colour; a repeated goal = separate combos |
@@ -237,7 +238,7 @@ screenshot → board bounds → orb recognition → (user fixes cells) → solve
 android/app/src/main/java/dev/quickreplay/pad/
   Board.kt        Orb enum, Board (rows, cols, cells), parsing the letter format above
   Matcher.kt      match + combo grouping + gravity + cascades (no skyfall)
-  Shapes.kt       Row, Square3, Cross, LShape, Tpa, Column detection on a combo
+  Shapes.kt       Row, Square3, Cross, LShape, TShape, Tpa, Column detection on a combo
   Goal.kt         goal model + scoring
   Solver.kt       beam search, feasibility check
   PathGesture.kt  cell path → quickreplay/v1 swipe step

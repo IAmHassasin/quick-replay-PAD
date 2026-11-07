@@ -557,3 +557,69 @@ test('colors: count from 1 to 6 and a non-empty set of distinct R, B, G, L, D, H
   // The default set in another order is still the default label.
   assert.equal(goalLabel(normalizeGoals([colors(5, ['D', 'L', 'G', 'B', 'R'])])[0]), '5+ colours');
 });
+
+// --- T shape (REHA-13) ----------------------------------------------------------------------------
+
+// TEE of tools/pad-research/proposed-test-cases.json: moving the D at r3c1 up makes a T of Dark.
+const TEE = 'BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG'; // R4 B5 G5 L5 D6 H5
+// TEE with the D at r3c1 swapped one row down: the T needs two moves.
+const TEE_FAR = 'BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG'; // R4 B5 G5 L5 D6 H5
+
+test('tshape is exactly 5 orbs: 3 in a line plus 2 from its middle, in any orientation', () => {
+  const ts = [
+    [at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1)], // stem down
+    [at(0, 1), at(1, 1), at(2, 0), at(2, 1), at(2, 2)], // stem up
+    [at(0, 0), at(1, 0), at(2, 0), at(1, 1), at(1, 2)], // stem right
+    [at(0, 2), at(1, 2), at(2, 2), at(1, 1), at(1, 0)], // stem left
+  ].map(sorted);
+  for (const t of ts) {
+    assert.ok(comboHasShape('tshape', t, ROWS, COLS), `T ${t}`);
+    for (const type of ['square', 'cross', 'lshape', 'tpa']) assert.ok(!comboHasShape(type, t, ROWS, COLS), `a T is not a ${type}`);
+  }
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 0), at(1, 0), at(2, 0), at(2, 1), at(2, 2)]), ROWS, COLS), 'an L is not a T');
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 1), at(1, 0), at(1, 1), at(1, 2), at(2, 1)]), ROWS, COLS), 'a cross is not a T');
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 0), at(0, 1), at(0, 2), at(1, 1), at(2, 1), at(3, 1)]), ROWS, COLS), '6 orbs: a longer stem');
+  assert.ok(!comboHasShape('tshape', sorted([at(0, 0), at(0, 1), at(0, 2), at(0, 3), at(1, 1)]), ROWS, COLS), '4 in a line plus 1');
+  // Exact shape: a T with one more orb of the colour attached is a 6-orb combo, not a T.
+  assert.ok(!comboHasShape('tshape', sorted([...ts[0], at(1, 0)]), ROWS, COLS), 'a T with one extra orb');
+  assert.ok(!comboHasShape('tshape', sorted([...ts[1], at(2, 3)]), ROWS, COLS), 'a T with a longer bar');
+  // Same shape away from the corner of the board.
+  assert.ok(comboHasShape('tshape', sorted([at(2, 3), at(2, 4), at(2, 5), at(3, 4), at(4, 4)]), ROWS, COLS), 'T at r2c3');
+});
+
+test('tshape: size 5, needs a 3x3 board, 4 placements per 3x3 window', () => {
+  assert.ok(SHAPE_TYPES.includes('tshape'));
+  assert.equal(shapeSize('tshape', 5, 6), 5);
+  assert.ok(shapeFits('tshape', 3, 3));
+  for (const [rows, cols] of [[2, 6], [6, 2], [2, 2], [1, 9]]) assert.ok(!shapeFits('tshape', rows, cols), `${cols}x${rows}`);
+  assert.equal(shapePlacements('tshape', 5, 6).length, 48);
+  assert.equal(shapePlacements('tshape', 4, 5).length, 2 * 3 * 4);
+  assert.equal(shapePlacements('tshape', 3, 3).length, 4);
+  // Orientation order per window (decides ties; Shapes.kt keeps it): stem down, up, right, left.
+  assert.deepEqual(shapePlacements('tshape', 3, 3), [
+    { cells: [0, 1, 2, 4, 7], exact: true },
+    { cells: [1, 4, 6, 7, 8], exact: true },
+    { cells: [0, 3, 4, 5, 6], exact: true },
+    { cells: [2, 3, 4, 5, 8], exact: true },
+  ]);
+  assert.equal(goalLabel(normalizeGoals([{ type: 'tshape', color: 'D' }])[0]), 'T shape of Dark');
+});
+
+test('tshape: T of Dark on the tee board in one move', () => {
+  const { result, combo } = assertShapeGoal(TEE, 'tshape', 'D');
+  // One swap of r2c1 and r3c1. The research case wrote [19, 13] (D up); the solver holds the H and
+  // drags it down ([13, 19]), which leaves the same board.
+  assert.equal(result.moves, 1);
+  assert.deepEqual(sorted(result.path), [13, 19]);
+  assert.equal(combo.cells.length, 5);
+  assert.deepEqual(combo.cells, [1, 7, 12, 13, 14], 'column 1 rows 0-2 + row 2 columns 0-2: stem up');
+  const reported = result.combos.find((c) => c.color === 'D' && c.shapes.includes('tshape'));
+  assert.deepEqual(reported.shapes, ['tshape'], 'not a cross, L, square or 4 in a line');
+});
+
+test('tshape: impossible with 4 Fire orbs, unmet with one move when the T needs two', () => {
+  assertImpossible(TEE, [{ type: 'tshape', color: 'R' }], ['Fire: the goals need 5 orbs, the board has 4']);
+  assertImpossible('RRB\nGLD\nHBG', [{ type: 'tshape', color: 'R' }], ['Fire: the goals need 5 orbs, the board has 2']);
+  assertUnmet(TEE_FAR, [{ type: 'tshape', color: 'D' }]);
+  assertShapeGoal(TEE_FAR, 'tshape', 'D');
+});

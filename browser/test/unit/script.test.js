@@ -293,3 +293,15 @@ test('the script schema has the colors goal: count 1-6 and an optional colour se
     assert.equal(matching(goal), 1, JSON.stringify(goal));
   }
 });
+
+test('tshape goals: a shape goal with a colour, in the validator and the schema (REHA-13)', () => {
+  const goal = { type: 'tshape', color: 'D' };
+  assert.deepEqual(validateScript(colorsScript(goal)), []);
+  assert.match(validateScript(colorsScript({ type: 'tshape' }))[0] ?? '', /pad\.goals\[0\]/);
+  assert.match(validateScript(colorsScript({ type: 'tshape', color: 'J' }))[0] ?? '', /pad\.goals\[0\]/);
+  const schema = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+  const matching = schema.$defs.goal.oneOf.filter((branch) => matchesSchema(branch, goal));
+  assert.equal(matching.length, 1, 'exactly one goal branch accepts a tshape goal');
+  assert.ok(matching[0].properties.type.enum.includes('tshape'));
+  assert.ok(!schema.$defs.goal.oneOf.some((branch) => matchesSchema(branch, { type: 'tshape' })), 'a colour is required');
+});

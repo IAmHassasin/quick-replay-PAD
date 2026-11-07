@@ -10,7 +10,7 @@ export const PLATFORMS = Object.freeze(['android', 'browser']);
 export const BROWSER_STEP_TYPES = Object.freeze(['navigate', 'click', 'type', 'key', 'scroll', 'wait']);
 export const ANDROID_STEP_TYPES = Object.freeze(['tap', 'longPress', 'swipe', 'wait', 'solve']);
 /** Goal types and colours of the `pad` setup (android solve steps). */
-const PAD_SHAPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa'];
+const PAD_SHAPES = ['row', 'column', 'square', 'cross', 'lshape', 'tpa', 'tshape'];
 const PAD_COLORS = ['R', 'B', 'G', 'L', 'D', 'H'];
 export const MOUSE_BUTTONS = Object.freeze(['left', 'middle', 'right']);
 

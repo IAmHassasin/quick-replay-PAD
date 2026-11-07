@@ -26,6 +26,10 @@ const TWICE = 'RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH';
 // makes R R R B B B and no single move makes a Heart combo.
 const RBG = 'RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH';
 const DUO = 'RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD';
+// T shape boards (REHA-13): TEE of the proposed cases (one move makes a T of Dark) and TEE_FAR,
+// the same board with the D one row lower (the T needs two moves).
+const TEE = 'BDGLRH\nGDBHLR\nDHDGBL\nLDRBGH\nRBLHDG';
+const TEE_FAR = 'BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG';
 const FULL =Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
@@ -82,6 +86,12 @@ const cases = [
   ['three colors 3+ one move unmet', THREE, [{ type: 'colors', count: 3 }], { ...single, maxMoves: 1 }],
   ['doc colors 4+ + 6 combos', DOC, [{ type: 'colors', count: 4 }, { type: 'combos', count: 6 }], single],
   ['shot colors 4+ of 6 + row G no diagonals', SHOT, [{ type: 'colors', count: 4, of: ['R', 'B', 'G', 'L', 'D', 'H'] }, { type: 'row', color: 'G' }], { ...single, diagonals: false }],
+  // T shape (REHA-13): solved, impossible, unmet with one move, two moves, without diagonals.
+  ['tee tshape D', TEE, [{ type: 'tshape', color: 'D' }], single],
+  ['tee tshape R impossible', TEE, [{ type: 'tshape', color: 'R' }], single],
+  ['tee far tshape D one move unmet', TEE_FAR, [{ type: 'tshape', color: 'D' }], { ...single, maxMoves: 1 }],
+  ['tee far tshape D', TEE_FAR, [{ type: 'tshape', color: 'D' }], single],
+  ['tee far tshape D no diagonals', TEE_FAR, [{ type: 'tshape', color: 'D' }], { ...single, diagonals: false }],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {

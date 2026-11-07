@@ -47,7 +47,7 @@
         {
           "type": "object",
           "properties": {
-            "type": { "enum": ["row", "column", "square", "cross", "lshape", "tpa"] },
+            "type": { "enum": ["row", "column", "square", "cross", "lshape", "tpa", "tshape"] },
             "color": { "enum": ["R", "B", "G", "L", "D", "H"] }
           },
           "required": ["type", "color"]
