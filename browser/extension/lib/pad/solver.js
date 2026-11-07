@@ -7,7 +7,9 @@
  * dropped with a Zobrist hash. The search stops at the first depth where every goal is met, when
  * `maxMoves` is reached or when `timeLimitMs` runs out (the best path found so far is returned).
  */
-import { MAX_SIZE, ORB_COUNT, ORB_LETTERS, ORB_NAMES, applyPath, checkSize, countOrbs, orbCode } from './board.js';
+import {
+  BOMB, GOAL_COLOR_COUNT, MAX_SIZE, MORTAL_POISON, ORB_COUNT, ORB_LETTERS, ORB_NAMES, POISON, UNKNOWN, applyPath, checkSize, countOrbs, orbCode,
+} from './board.js';
 import { Matcher } from './matcher.js';
 import { SHAPE_LABELS, SHAPE_TYPES, blobPlacements, comboHasShape, shapeFits, shapePlacements, shapeSize } from './shapes.js';
 
@@ -57,6 +59,11 @@ const DISTANCE_WEIGHT = 2;
 const PAIR_WEIGHT = 2;
 const COMBO_WEIGHT = 2;
 const COMBO_GOAL_WEIGHT = 40;
+/**
+ * Subtracted from a board that matches Poison or Mortal poison: far more than any goal score, so
+ * such a board stays at the bottom of the beam (it is never picked as the answer either).
+ */
+const POISON_PENALTY = 100_000;
 const TIME_CHECK_INTERVAL = 256;
 // Same value in the Kotlin port, where it bounds memory on phones; changing it changes the
 // shared vectors (spec/pad-solver-vectors.json).
@@ -82,7 +89,7 @@ export function normalizeGoals(goals, size) {
     }
     if (goal.type === 'colors') return normalizeColorsGoal(goal, where);
     const color = goalColor(goal.color);
-    if (color !== ANY_COLOR && (!Number.isInteger(color) || color < 0 || color >= ORB_COUNT)) {
+    if (color !== ANY_COLOR && (!Number.isInteger(color) || color < 0 || color >= GOAL_COLOR_COUNT)) {
       throw new Error(`${where}: unknown colour "${goal.color}"`);
     }
     if (goal.type === 'blob') {
@@ -135,6 +142,11 @@ function normalizeColorsGoal(goal, where) {
   return { type: 'colors', count, of };
 }
 
+/** False for orbs the result must never match (Poison, Mortal poison) or cannot (unknown colour). */
+function isMatchable(code) {
+  return code !== POISON && code !== MORTAL_POISON && code !== UNKNOWN;
+}
+
 /** Bit mask of the colours of a normalised `colors` goal. */
 function colorsMask(goal) {
   let mask = 0;
@@ -149,6 +161,7 @@ function colorsMask(goal) {
  */
 export function goalLabel(goal) {
   if (goal.type === 'combos') return `${goal.count}+ combos`;
+  if (goal.type === 'bombs') return `All ${goal.count} bombs matched`;
   if (goal.type === 'colors') {
     const mask = colorsMask(goal);
     if (mask === 0b11111) return `${goal.count}+ colours`;
@@ -167,6 +180,10 @@ export function goalLabel(goal) {
 /**
  * Checks orb counts and board size. A goal list can still be unsolvable when this passes. Any
  * goals are only checked for size here (their colour is not chosen yet; see {@link solve}).
+ *
+ * Hazard orbs: 1 or 2 bombs make every goal list impossible (all bombs must be matched); goals
+ * of Poison or Mortal poison are impossible (they must never be matched); Poison, Mortal poison
+ * and unknown orbs never count towards the combos possible.
  * @returns {string[]} Reasons the goals are impossible (empty when they may be possible).
  */
 export function checkFeasibility(board, goals) {
@@ -176,10 +193,18 @@ export function checkFeasibility(board, goals) {
   const rowGoals = new Array(ORB_COUNT).fill(0);
   const columnGoals = new Array(ORB_COUNT).fill(0);
   const reasons = [];
+  const bombs = counts[BOMB];
+  if (bombs > 0 && bombs < 3) {
+    reasons.push(`Bomb: ${bombs} ${bombs === 1 ? 'bomb' : 'bombs'} on the board, all bombs must be matched and a match needs 3`);
+  }
   for (const goal of goals) {
     if (goal.type === 'combos') {
-      const max = counts.reduce((sum, n) => sum + Math.floor(n / 3), 0);
+      const max = counts.reduce((sum, n, code) => (isMatchable(code) ? sum + Math.floor(n / 3) : sum), 0);
       if (goal.count > max) reasons.push(`${goalLabel(goal)}: at most ${max} combos are possible on this board`);
+      continue;
+    }
+    if (goal.color === POISON || goal.color === MORTAL_POISON) {
+      reasons.push(`${goalLabel(goal)}: Poison and Mortal poison orbs must never be matched`);
       continue;
     }
     if (goal.type === 'colors') {
@@ -284,6 +309,9 @@ export function solve(board, goals, options = {}) {
     };
   }
 
+  // 3+ bombs: an extra goal, met when every bomb is in a combo (1 or 2 failed the feasibility check).
+  const bombs = countOrbs(cells)[BOMB];
+  const extra = bombs ? [{ type: 'bombs', count: bombs }] : [];
   const deadline = started + opts.timeLimitMs;
   let best = null;
   let evaluated = 0;
@@ -291,7 +319,7 @@ export function solve(board, goals, options = {}) {
   let depth = 0;
   let timedOut = false;
   assignments.forEach((assignment, k) => {
-    const resolved = resolveAny(units, anyIndices, assignment);
+    const resolved = [...resolveAny(units, anyIndices, assignment), ...extra];
     // The last assignment (the only one without Any goals) ends exactly at the time limit.
     const sliceStart = now();
     const left = assignments.length - k;
@@ -305,14 +333,33 @@ export function solve(board, goals, options = {}) {
   });
 
   const { resolved, path, metFlags, sim } = best;
+  const stats = {
+    depth, evaluated, rounds, beamWidth: best.beamWidth, ms: Math.round(now() - started), timedOut, assignments: assignments.length,
+  };
+  if (best.poisoned) {
+    return {
+      status: 'impossible',
+      reasons: ['Poison: every path found matches Poison or Mortal poison orbs'],
+      path: [],
+      moves: 0,
+      goals: resolved.map((unit) => ({ label: goalLabel(unit), met: false })),
+      combos: [],
+      afterDrag: null,
+      afterMatch: null,
+      stats,
+    };
+  }
   return {
     status: metFlags.every(Boolean) ? 'solved' : 'partial',
     reasons: [],
     path,
     moves: Math.max(0, path.length - 1),
-    goals: resolved.map((unit, i) => (units[i].color === ANY_COLOR
-      ? { label: `${goalLabel(unit)} (any colour)`, met: metFlags[i], anyColor: ORB_LETTERS[unit.color] }
-      : { label: goalLabels[i], met: metFlags[i] })),
+    goals: resolved.map((unit, i) => {
+      if (i >= units.length) return { label: goalLabel(unit), met: metFlags[i] };
+      return units[i].color === ANY_COLOR
+        ? { label: `${goalLabel(unit)} (any colour)`, met: metFlags[i], anyColor: ORB_LETTERS[unit.color] }
+        : { label: goalLabels[i], met: metFlags[i] };
+    }),
     combos: sim.combos.map((combo) => ({
       color: ORB_LETTERS[combo.color],
       size: combo.cells.length,
@@ -321,9 +368,7 @@ export function solve(board, goals, options = {}) {
     })),
     afterDrag: best.afterDrag,
     afterMatch: sim.cells.slice(),
-    stats: {
-      depth, evaluated, rounds, beamWidth: best.beamWidth, ms: Math.round(now() - started), timedOut, assignments: assignments.length,
-    },
+    stats,
   };
 }
 
@@ -370,8 +415,12 @@ function resolveAny(units, anyIndices, assignment) {
   return resolved;
 }
 
-/** Ranking of the results of two Any assignments: solved, then more goals met, then fewer moves. */
+/**
+ * Ranking of the results of two Any assignments: no poison matched, solved, then more goals met,
+ * then fewer moves.
+ */
 function betterResult(a, b) {
+  if (a.poisoned !== b.poisoned) return b.poisoned;
   const solvedA = a.metFlags.every(Boolean);
   const solvedB = b.metFlags.every(Boolean);
   if (solvedA !== solvedB) return solvedA;
@@ -391,8 +440,8 @@ function searchGoals(board, units, opts, timeUp) {
     // Private copy: the search swaps orbs in place while scoring.
     cells: cells.slice(),
     goalCount: units.length,
-    evaluator: new Evaluator(rows, cols, units, opts.diagonals),
-    neighbours: buildNeighbours(rows, cols, opts.diagonals),
+    evaluator: new Evaluator(rows, cols, units, opts.diagonals, cells),
+    neighbours: buildNeighbours(rows, cols, opts.diagonals, cells),
     zobrist: new Zobrist(rows * cols),
     timeUp,
   };
@@ -434,7 +483,16 @@ function searchGoals(board, units, opts, timeUp) {
   const afterDrag = applyPath(cells, path);
   const sim = search.evaluator.matcher.simulate(afterDrag);
   return {
-    path, afterDrag, sim, metFlags: search.evaluator.goalsMet(sim.combos), evaluated, rounds, depth, beamWidth: width, timedOut,
+    path,
+    afterDrag,
+    sim,
+    metFlags: search.evaluator.goalsMet(sim.combos),
+    poisoned: sim.combos.some(isPoison),
+    evaluated,
+    rounds,
+    depth,
+    beamWidth: width,
+    timedOut,
   };
 }
 
@@ -461,6 +519,8 @@ function beamRound(search, width, maxDepth) {
   const seen = new Set();
   let beam = [];
   for (let start = 0; start < cells.length; start++) {
+    // An unknown orb is never held or swapped.
+    if (cells[start] === UNKNOWN) continue;
     const [h1, h2] = zobrist.hashOf(cells, start);
     beam.push({ cells, cursor: start, prev: -1, parent: null, h1, h2 });
     seen.add(key(h1, h2));
@@ -529,7 +589,8 @@ function pathOf(node) {
   return path.reverse();
 }
 
-function buildNeighbours(rows, cols, diagonals) {
+/** Cells a move may go to from each cell; cells holding an unknown orb are left out. */
+function buildNeighbours(rows, cols, diagonals, cells) {
   const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   if (diagonals) dirs.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
   const out = [];
@@ -539,7 +600,7 @@ function buildNeighbours(rows, cols, diagonals) {
       for (const [dr, dc] of dirs) {
         const nr = r + dr;
         const nc = c + dc;
-        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) list.push(nr * cols + nc);
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && cells[nr * cols + nc] !== UNKNOWN) list.push(nr * cols + nc);
       }
       out.push(list);
     }
@@ -594,9 +655,13 @@ function mulberry32(seed) {
   };
 }
 
-/** Scores boards against a goal list (allocation-free in the hot path). */
+/**
+ * Scores boards against a goal list (allocation-free in the hot path). `cells` is the board before
+ * the drag: shape and blob placements on or next to an unknown orb (which never moves during the
+ * drag) are left out, unless that leaves none.
+ */
 class Evaluator {
-  constructor(rows, cols, units, diagonals) {
+  constructor(rows, cols, units, diagonals, cells) {
     this.rows = rows;
     this.cols = cols;
     this.units = units;
@@ -623,11 +688,18 @@ class Evaluator {
     this.groups = new Map();
     units.forEach((unit, index) => {
       // `colors` goals are about the whole turn, like `combos`: one group, each goal checked alone.
-      const k = unit.type === 'combos' || unit.type === 'colors' ? unit.type
+      const k = unit.type === 'combos' || unit.type === 'colors' || unit.type === 'bombs' ? unit.type
         : unit.type === 'blob' ? `blob:${unit.color}:${unit.min}:${unit.max ?? ''}` : `${unit.type}:${unit.color}`;
       if (!this.groups.has(k)) {
-        const targets = unit.type === 'combos' || unit.type === 'colors' ? []
-          : unit.type === 'blob' ? blobPlacements(unit.min, rows, cols, unit.max) : shapePlacements(unit.type, rows, cols);
+        let targets;
+        if (unit.type === 'combos' || unit.type === 'colors') targets = [];
+        // Every bomb in one line of exactly that many cells (or the smallest rectangle that holds them).
+        else if (unit.type === 'bombs') targets = blobPlacements(unit.count, rows, cols, unit.count);
+        else {
+          targets = unit.type === 'blob' ? blobPlacements(unit.min, rows, cols, unit.max) : shapePlacements(unit.type, rows, cols);
+          const clear = targets.filter((p) => !touchesUnknown(p.cells, cells, rows, cols));
+          if (clear.length) targets = clear;
+        }
         const placements = targets.map((p) => {
           const inside = new Uint8Array(n);
           for (const i of p.cells) inside[i] = 1;
@@ -635,7 +707,8 @@ class Evaluator {
         });
         this.groups.set(k, {
           type: unit.type,
-          color: unit.color,
+          color: unit.type === 'bombs' ? BOMB : unit.color,
+          count: unit.count,
           min: unit.min,
           // A blob without max has no upper bound.
           max: unit.max ?? Infinity,
@@ -664,11 +737,20 @@ class Evaluator {
     return met;
   }
 
+  /**
+   * Combos of a group's colour that meet its goals (`bombs`: 1 when every bomb is matched, else 0).
+   * A shape or blob combo next to an unknown orb does not count.
+   */
   available(group, combos) {
     if (group.type === 'combos' || group.type === 'colors') return combos.length;
+    if (group.type === 'bombs') {
+      let matched = 0;
+      for (const combo of combos) if (combo.color === BOMB) matched += combo.cells.length;
+      return matched >= group.count ? 1 : 0;
+    }
     let n = 0;
     for (const combo of combos) {
-      if (combo.color !== group.color) continue;
+      if (combo.color !== group.color || combo.touchesUnknown) continue;
       const size = combo.cells.length;
       if (group.type === 'blob' ? size >= group.min && size <= group.max : comboHasShape(group.type, combo.cells, this.rows, this.cols)) n++;
     }
@@ -722,6 +804,11 @@ class Evaluator {
       const missing = group.indices.length - available;
       if (missing > 0) score += this.progress(group, cells, available, missing);
     }
+    // A board matching Poison or Mortal poison is never an answer: below every other board.
+    if (combos.some(isPoison)) {
+      score -= POISON_PENALTY;
+      met = -1;
+    }
     this.met = met;
     this.combos = combos.length;
     return score;
@@ -759,17 +846,20 @@ class Evaluator {
     return total;
   }
 
-  /** Number of horizontally or vertically touching pairs of same-colour orbs. */
+  /**
+   * Number of horizontally or vertically touching pairs of same-colour orbs (not Poison, Mortal
+   * poison or unknown orbs: they must not or cannot make combos).
+   */
   pairs(cells) {
     const { rows, cols } = this;
     let count = 0;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c + 1 < cols; c++) {
         const i = r * cols + c;
-        if (cells[i] === cells[i + 1]) count++;
+        if (cells[i] === cells[i + 1] && isMatchable(cells[i])) count++;
       }
     }
-    for (let i = 0; i + cols < rows * cols; i++) if (cells[i] === cells[i + cols]) count++;
+    for (let i = 0; i + cols < rows * cols; i++) if (cells[i] === cells[i + cols] && isMatchable(cells[i])) count++;
     return count;
   }
 
@@ -806,6 +896,10 @@ class Evaluator {
   }
 }
 
+function isPoison(combo) {
+  return combo.color === POISON || combo.color === MORTAL_POISON;
+}
+
 /** Number of distinct colours of `mask` among the combos. */
 function colorCount(combos, mask) {
   let seen = 0;
@@ -813,6 +907,18 @@ function colorCount(combos, mask) {
   let n = 0;
   for (let bits = seen; bits; bits &= bits - 1) n++;
   return n;
+}
+
+/** True when a placement holds an unknown orb of `cells` or touches one orthogonally. */
+function touchesUnknown(placement, cells, rows, cols) {
+  for (const i of placement) {
+    if (cells[i] === UNKNOWN) return true;
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    if ((r > 0 && cells[i - cols] === UNKNOWN) || (r < rows - 1 && cells[i + cols] === UNKNOWN)
+      || (c > 0 && cells[i - 1] === UNKNOWN) || (c < cols - 1 && cells[i + 1] === UNKNOWN)) return true;
+  }
+  return false;
 }
 
 /** Cells orthogonally adjacent to a placement but outside it. */

@@ -14,7 +14,7 @@ sealed interface Goal {
     data class Shape(override val type: String, val color: Int) : Goal {
         init {
             require(type in Shapes.TYPES) { "Unknown goal type \"$type\"" }
-            require(color == Orbs.ANY || color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
+            require(color == Orbs.ANY || color in 0 until Orbs.GOAL_COLORS) { "Unknown colour code $color" }
         }
 
         override val label: String get() = "${Shapes.LABELS.getValue(type)} of ${Orbs.goalName(color)}"
@@ -37,7 +37,7 @@ sealed interface Goal {
      */
     data class Blob(val color: Int, val min: Int, val max: Int? = null) : Goal {
         init {
-            require(color == Orbs.ANY || color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
+            require(color == Orbs.ANY || color in 0 until Orbs.GOAL_COLORS) { "Unknown colour code $color" }
             require(min >= MIN) { "Blob size must be >= $MIN" }
             require(min <= Board.MAX_SIZE * Board.MAX_SIZE) { "Blob size must be at most ${Board.MAX_SIZE * Board.MAX_SIZE}" }
             if (max != null) {
@@ -172,20 +172,44 @@ object Solver {
     private const val PAIR_WEIGHT = 2.0
     private const val COMBO_WEIGHT = 2.0
     private const val COMBO_GOAL_WEIGHT = 40.0
+
+    /** Same as solver.js: a board matching Poison or Mortal poison stays below every other board. */
+    private const val POISON_PENALTY = 100_000.0
     private const val TIME_CHECK_INTERVAL = 256
     private const val SEEN_LIMIT = 1_000_000
 
-    /** Checks orb counts and board size; returns the reasons the goals are impossible. */
+    /** False for orbs the result must never match (Poison, Mortal poison) or cannot (unknown colour). */
+    private fun isMatchable(code: Int): Boolean = code != Orbs.POISON && code != Orbs.MORTAL_POISON && code != Orbs.UNKNOWN
+
+    private fun isPoison(combo: Combo): Boolean = combo.color == Orbs.POISON || combo.color == Orbs.MORTAL_POISON
+
+    /** Label of the extra goal of a board with 3+ bombs (same as solver.js). */
+    private fun bombsLabel(count: Int): String = "All $count bombs matched"
+
+    /**
+     * Checks orb counts and board size; returns the reasons the goals are impossible. Hazard orbs,
+     * like solver.js: 1 or 2 bombs make every goal list impossible; Poison and Mortal poison goals
+     * are impossible; Poison, Mortal poison and unknown orbs never count towards the combos possible.
+     */
     fun checkFeasibility(board: Board, goals: List<Goal>): List<String> {
         val counts = countOrbs(board.cells)
         val need = IntArray(Orbs.COUNT)
         val rowGoals = IntArray(Orbs.COUNT)
         val columnGoals = IntArray(Orbs.COUNT)
         val reasons = ArrayList<String>()
+        val bombs = counts[Orbs.BOMB]
+        if (bombs in 1..2) {
+            reasons += "Bomb: $bombs ${if (bombs == 1) "bomb" else "bombs"} on the board, all bombs must be matched and a match needs 3"
+        }
         for (goal in goals) {
+            val color = colorOf(goal)
+            if (color == Orbs.POISON || color == Orbs.MORTAL_POISON) {
+                reasons += "${goal.label}: Poison and Mortal poison orbs must never be matched"
+                continue
+            }
             when (goal) {
                 is Goal.Combos -> {
-                    val max = counts.sumOf { it / 3 }
+                    val max = counts.indices.sumOf { if (isMatchable(it)) counts[it] / 3 else 0 }
                     if (goal.count > max) reasons += "${goal.label}: at most $max combos are possible on this board"
                 }
                 // A plain sum, like solver.js: a blob shares orbs with another goal only as its combo.
@@ -257,6 +281,8 @@ object Solver {
             )
         }
 
+        // 3+ bombs: an extra goal, met when every bomb is in a combo (1 or 2 failed the feasibility check).
+        val bombs = countOrbs(board.cells)[Orbs.BOMB]
         val deadline = started + options.timeLimitMs
         var best: Found? = null
         var bestGoals: List<Goal> = goals
@@ -270,7 +296,7 @@ object Solver {
             val sliceStart = now()
             val left = assignments.size - k
             val sliceEnd = if (left == 1) deadline else sliceStart + (deadline - sliceStart) / left
-            val found = searchGoals(board, resolved, options) { now() > sliceEnd }
+            val found = searchGoals(board, resolved, bombs, options) { now() > sliceEnd }
             evaluated += found.evaluated
             rounds += found.rounds
             depth = maxOf(depth, found.depth)
@@ -282,6 +308,14 @@ object Solver {
         }
 
         val result = best!!
+        val extraLabels = if (bombs > 0) listOf(bombsLabel(bombs)) else emptyList()
+        val stats = SolveStats(depth, evaluated, rounds, result.beamWidth, now() - started, timedOut, assignments.size)
+        if (result.poisoned) {
+            return SolveResult(
+                "impossible", listOf("Poison: every path found matches Poison or Mortal poison orbs"), emptyList(),
+                (bestGoals.map { it.label } + extraLabels).map { GoalResult(it, false) }, emptyList(), null, stats,
+            )
+        }
         return SolveResult(
             status = if (result.met.all { it }) "solved" else "partial",
             reasons = emptyList(),
@@ -292,7 +326,7 @@ object Solver {
                 } else {
                     GoalResult(labels[i], result.met[i])
                 }
-            },
+            } + extraLabels.mapIndexed { k, label -> GoalResult(label, result.met[goals.size + k]) },
             combos = result.combos.map { combo ->
                 ComboInfo(
                     Orbs.LETTERS[combo.color], combo.cells.size, combo.pass,
@@ -300,7 +334,7 @@ object Solver {
                 )
             },
             afterDrag = result.afterDrag,
-            stats = SolveStats(depth, evaluated, rounds, result.beamWidth, now() - started, timedOut, assignments.size),
+            stats = stats,
         )
     }
 
@@ -373,6 +407,8 @@ object Solver {
         val afterDrag: IntArray,
         val combos: List<Combo>,
         val met: List<Boolean>,
+        /** The path matches Poison or Mortal poison (only when every path found does). */
+        val poisoned: Boolean,
         val evaluated: Long,
         val rounds: Int,
         val depth: Int,
@@ -380,8 +416,9 @@ object Solver {
         val timedOut: Boolean,
     )
 
-    /** Same ranking as `betterResult()` in solver.js: solved, then more goals met, then fewer moves. */
+    /** Same ranking as `betterResult()` in solver.js: no poison, solved, then more goals met, then fewer moves. */
     private fun betterResult(a: Found, b: Found): Boolean {
+        if (a.poisoned != b.poisoned) return b.poisoned
         val solvedA = a.met.all { it }
         val solvedB = b.met.all { it }
         if (solvedA != solvedB) return solvedA
@@ -391,13 +428,14 @@ object Solver {
         return a.path.size < b.path.size
     }
 
-    private fun searchGoals(board: Board, goals: List<Goal>, options: SolveOptions, timeUp: () -> Boolean): Found {
+    /** [bombs] > 0: an extra goal after [goals], met when every bomb is matched. */
+    private fun searchGoals(board: Board, goals: List<Goal>, bombs: Int, options: SolveOptions, timeUp: () -> Boolean): Found {
         val search = Search(
             // Private copy: the search swaps orbs in place while scoring.
             cells = board.cells.copyOf(),
-            goalCount = goals.size,
-            evaluator = Evaluator(board.rows, board.cols, goals, options.diagonals),
-            neighbours = buildNeighbours(board.rows, board.cols, options.diagonals),
+            goalCount = goals.size + (if (bombs > 0) 1 else 0),
+            evaluator = Evaluator(board.rows, board.cols, goals, options.diagonals, board.cells, bombs),
+            neighbours = buildNeighbours(board.rows, board.cols, options.diagonals, board.cells),
             zobrist = Zobrist(board.rows * board.cols),
             timeUp = timeUp,
         )
@@ -434,7 +472,10 @@ object Solver {
         val path = best?.let(::pathOf).orEmpty()
         val afterDrag = applyPath(board.cells, path)
         val sim = search.evaluator.matcher.simulate(afterDrag)
-        return Found(path, afterDrag, sim.combos, search.evaluator.goalsMet(sim.combos), evaluated, rounds, depth, width, timedOut)
+        return Found(
+            path, afterDrag, sim.combos, search.evaluator.goalsMet(sim.combos), sim.combos.any(::isPoison),
+            evaluated, rounds, depth, width, timedOut,
+        )
     }
 
     private class Node(
@@ -477,6 +518,8 @@ object Solver {
         val seen = LongSet()
         var beam = ArrayList<Node>()
         for (start in cells.indices) {
+            // An unknown orb is never held or swapped.
+            if (cells[start] == Orbs.UNKNOWN) continue
             val (h1, h2) = zobrist.hashOf(cells, start)
             beam += Node(cells, start, -1, null, h1, h2, 0.0, 0, 0, 0)
             seen.add(key(h1, h2))
@@ -543,7 +586,8 @@ object Solver {
         return path.reversed()
     }
 
-    private fun buildNeighbours(rows: Int, cols: Int, diagonals: Boolean): Array<IntArray> {
+    /** Cells a move may go to from each cell; cells holding an unknown orb are left out. */
+    private fun buildNeighbours(rows: Int, cols: Int, diagonals: Boolean, cells: IntArray): Array<IntArray> {
         val dirs = mutableListOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)
         if (diagonals) dirs += listOf(-1 to -1, -1 to 1, 1 to -1, 1 to 1)
         return Array(rows * cols) { i ->
@@ -552,7 +596,7 @@ object Solver {
             dirs.mapNotNull { (dr, dc) ->
                 val nr = r + dr
                 val nc = c + dc
-                if (nr in 0 until rows && nc in 0 until cols) nr * cols + nc else null
+                if (nr in 0 until rows && nc in 0 until cols && cells[nr * cols + nc] != Orbs.UNKNOWN) nr * cols + nc else null
             }.toIntArray()
         }
     }
@@ -603,8 +647,19 @@ object Solver {
         }
     }
 
-    /** Scores boards against a goal list (allocation-free in the hot path). Port of `Evaluator`. */
-    private class Evaluator(private val rows: Int, private val cols: Int, private val goals: List<Goal>, diagonals: Boolean) {
+    /**
+     * Scores boards against a goal list (allocation-free in the hot path). Port of `Evaluator`.
+     * [start] is the board before the drag: shape and blob placements on or next to an unknown orb
+     * are left out, unless that leaves none. [bombs] > 0 adds a last goal: every bomb matched.
+     */
+    private class Evaluator(
+        private val rows: Int,
+        private val cols: Int,
+        private val goals: List<Goal>,
+        diagonals: Boolean,
+        start: IntArray,
+        bombs: Int,
+    ) {
         val matcher = Matcher(rows, cols)
         private val n = rows * cols
         private val dist = IntArray(n * n)
@@ -627,6 +682,8 @@ object Solver {
             val placements: List<Shapes.Placement>,
             val borders: List<IntArray>,
             val insides: List<BooleanArray>,
+            /** Number of bombs of the "bombs" group (0 for other groups). */
+            val count: Int = 0,
         ) {
             val values = DoubleArray(placements.size)
             val haves = IntArray(placements.size)
@@ -662,11 +719,13 @@ object Solver {
                     is Goal.Colors -> "colors"
                 }
                 val group = groups.getOrPut(k) {
-                    val placements = when (goal) {
+                    var placements = when (goal) {
                         is Goal.Shape -> Shapes.placements(goal.type, rows, cols)
                         is Goal.Blob -> Shapes.blobPlacements(goal.min, rows, cols, goal.max ?: Int.MAX_VALUE)
                         is Goal.Combos, is Goal.Colors -> emptyList()
                     }
+                    val clear = placements.filter { !touchesUnknown(it.cells, start) }
+                    if (clear.isNotEmpty()) placements = clear
                     Group(
                         goal.type,
                         when (goal) {
@@ -683,11 +742,42 @@ object Solver {
                 }
                 group.indices += index
             }
+            if (bombs > 0) {
+                // Every bomb in one line of exactly that many cells (or the smallest rectangle that holds them).
+                val placements = Shapes.blobPlacements(bombs, rows, cols, bombs)
+                groups["bombs"] = Group(
+                    "bombs",
+                    Orbs.BOMB,
+                    null,
+                    mutableListOf(goals.size),
+                    placements,
+                    placements.map { p -> if (p.exact) borderOf(p.cells) else IntArray(0) },
+                    placements.map { p -> BooleanArray(n).also { inside -> for (i in p.cells) inside[i] = true } },
+                    bombs,
+                )
+            }
         }
 
-        /** Per-goal met flags for a list of combos. */
+        private val goalCount = goals.size + (if (bombs > 0) 1 else 0)
+
+        /** True when [placement] holds an unknown orb of [cells] or touches one orthogonally. */
+        private fun touchesUnknown(placement: IntArray, cells: IntArray): Boolean {
+            for (i in placement) {
+                if (cells[i] == Orbs.UNKNOWN) return true
+                val r = i / cols
+                val c = i % cols
+                if ((r > 0 && cells[i - cols] == Orbs.UNKNOWN) || (r < rows - 1 && cells[i + cols] == Orbs.UNKNOWN) ||
+                    (c > 0 && cells[i - 1] == Orbs.UNKNOWN) || (c < cols - 1 && cells[i + 1] == Orbs.UNKNOWN)
+                ) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        /** Per-goal met flags for a list of combos (the bombs goal last). */
         fun goalsMet(combos: List<Combo>): List<Boolean> {
-            val met = MutableList(goals.size) { false }
+            val met = MutableList(goalCount) { false }
             for (group in groups.values) {
                 val available = available(group, combos)
                 group.indices.forEachIndexed { k, index ->
@@ -701,10 +791,20 @@ object Solver {
             return met
         }
 
+        /**
+         * Combos of a group's colour that meet its goals ("bombs": 1 when every bomb is matched, else 0).
+         * A shape or blob combo next to an unknown orb does not count.
+         */
         private fun available(group: Group, combos: List<Combo>): Int {
             if (group.type == "combos" || group.type == "colors") return combos.size
+            if (group.type == "bombs") {
+                var matched = 0
+                for (combo in combos) if (combo.color == Orbs.BOMB) matched += combo.cells.size
+                return if (matched >= group.count) 1 else 0
+            }
             return combos.count {
-                it.color == group.color && (group.blob?.accepts(it.cells.size) ?: Shapes.has(group.type, it.cells, rows, cols))
+                it.color == group.color && !it.touchesUnknown &&
+                    (group.blob?.accepts(it.cells.size) ?: Shapes.has(group.type, it.cells, rows, cols))
             }
         }
 
@@ -753,6 +853,11 @@ object Solver {
                 score += available * MET_SCORE
                 val missing = group.indices.size - available
                 if (missing > 0) score += progress(group, cells, available, missing)
+            }
+            // A board matching Poison or Mortal poison is never an answer: below every other board.
+            if (combos.any(::isPoison)) {
+                score -= POISON_PENALTY
+                met = -1
             }
             this.met = met
             this.combos = combos.size
@@ -819,16 +924,16 @@ object Solver {
             return sum + left * maxDist
         }
 
-        /** Number of horizontally or vertically touching pairs of same-colour orbs. */
+        /** Number of horizontally or vertically touching pairs of same-colour orbs (not Poison, Mortal poison or unknown). */
         private fun pairs(cells: IntArray): Int {
             var count = 0
             for (r in 0 until rows) {
                 for (c in 0 until cols - 1) {
                     val i = r * cols + c
-                    if (cells[i] == cells[i + 1]) count++
+                    if (cells[i] == cells[i + 1] && isMatchable(cells[i])) count++
                 }
             }
-            for (i in 0 until n - cols) if (cells[i] == cells[i + cols]) count++
+            for (i in 0 until n - cols) if (cells[i] == cells[i + cols] && isMatchable(cells[i])) count++
             return count
         }
 

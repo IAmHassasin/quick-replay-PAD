@@ -6,10 +6,22 @@
  * order (index = row * cols + col, row 0 at the top).
  */
 
-/** Orb letters, indexed by orb code. R Fire, B Water, G Wood, L Light, D Dark, H Heart, J Jammer, P Poison, M Mortal poison. */
-export const ORB_LETTERS = ['R', 'B', 'G', 'L', 'D', 'H', 'J', 'P', 'M'];
-export const ORB_NAMES = ['Fire', 'Water', 'Wood', 'Light', 'Dark', 'Heart', 'Jammer', 'Poison', 'Mortal poison'];
+/**
+ * Orb letters, indexed by orb code. R Fire, B Water, G Wood, L Light, D Dark, H Heart, J Jammer,
+ * P Poison, M Mortal poison, X Bomb, ? an orb of unknown colour (Super blind, Spinner).
+ */
+export const ORB_LETTERS = ['R', 'B', 'G', 'L', 'D', 'H', 'J', 'P', 'M', 'X', '?'];
+export const ORB_NAMES = ['Fire', 'Water', 'Wood', 'Light', 'Dark', 'Heart', 'Jammer', 'Poison', 'Mortal poison', 'Bomb', 'Unknown'];
 export const ORB_COUNT = ORB_LETTERS.length;
+/** Codes that may be goal colours (R to M); Bomb and unknown orbs never are. */
+export const GOAL_COLOR_COUNT = 9;
+/** Must never be matched, not even by a cascade. */
+export const POISON = 7;
+export const MORTAL_POISON = 8;
+/** Every bomb on the board must be matched (so 1 or 2 bombs make any goal impossible). */
+export const BOMB = 9;
+/** Colour unknown to the solver: never matched, never dragged, and pattern combos must not touch it. */
+export const UNKNOWN = 10;
 /** Code of a cell emptied by a match (only used while simulating). */
 export const EMPTY = 255;
 

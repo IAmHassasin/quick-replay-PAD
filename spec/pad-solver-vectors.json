@@ -2153,6 +2153,507 @@
         ],
         "assignments": 6
       }
+    },
+    {
+      "name": "poison direct row L",
+      "board": "LLLPLL\nRBPLPG\nGDBHRB\nDHGRDH\nBRHGBD",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          15
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "LLLLLL\nRBPHPG\nGDBPRB\nDHGRDH\nBRHGBD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "poison cascade row L",
+      "board": "LBBBGP\nRPBGGL\nHLPHBH\nPDGLBP\nLPLRLP",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          11,
+          17,
+          22,
+          27,
+          21,
+          20,
+          13,
+          19,
+          25,
+          20,
+          21,
+          22,
+          29
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LBBBGP\nRPBGGH\nHDPHBB\nPPGRPP\nLLLLLL",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "poison cascade 5 combos",
+      "board": "LBBBGP\nRPBGGL\nHLPHBH\nPDGLBP\nLPLRLP",
+      "goals": [
+        {
+          "type": "combos",
+          "count": 5
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          17,
+          22,
+          27,
+          21,
+          14,
+          15,
+          8,
+          14,
+          20,
+          13
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 5,
+        "afterDrag": "LBBBGP\nRPHGGL\nHHGBBB\nPDLPRP\nLPLLLP",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "mortal direct row L",
+      "board": "LLLMLL\nRBMLMG\nGDBHRB\nDHGRDH\nBRHGBD",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          15
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "LLLLLL\nRBMHMG\nGDBMRB\nDHGRDH\nBRHGBD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "mortal cascade row L",
+      "board": "MBDBML\nRHMBBM\nMHLLML\nLDLBDM\nMGBDLL",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          19,
+          14,
+          21,
+          28,
+          22,
+          17,
+          23,
+          29
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "MBDBML\nRHMBBM\nMHBLMM\nLLLLLL\nMGBDDD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "poison row P impossible",
+      "board": "LLLPLL\nRBPLPG\nGDBHRB\nDHGRDH\nBRHGBD",
+      "goals": [
+        {
+          "type": "row",
+          "color": "P"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Row of Poison: Poison and Mortal poison orbs must never be matched"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "bomb1 impossible",
+      "board": "LLLLLX\nRBGDHL\nGDHRBG\nDHRBGD\nHRBGDH",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Bomb: 1 bomb on the board, all bombs must be matched and a match needs 3"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "bomb2 impossible",
+      "board": "LLLLLX\nRBGDHX\nGDHRBG\nDHRBGD\nHRBGDL",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Bomb: 2 bombs on the board, all bombs must be matched and a match needs 3"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "bomb3 row L",
+      "board": "LLLLLB\nXRGXDH\nGDXRBG\nDHRBGL\nHRBGDH",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          7,
+          14,
+          8,
+          9,
+          16,
+          23,
+          17,
+          11,
+          16,
+          10,
+          5,
+          11
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LLLLLL\nXXXBBR\nGDGRDH\nDHRBGG\nHRBGDH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "bomb far row L one move unmet",
+      "board": "LLLRLL\nXBGLDH\nGDHRBG\nDHRBGD\nXRBGDX",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          3,
+          9
+        ],
+        "goalsMet": [
+          true,
+          false
+        ],
+        "combos": 1,
+        "afterDrag": "LLLLLL\nXBGRDH\nGDHRBG\nDHRBGD\nXRBGDX",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "unknown row L",
+      "board": "LLL?LL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          0,
+          7,
+          2,
+          8,
+          13,
+          6,
+          12,
+          7,
+          1,
+          8,
+          7,
+          14,
+          8,
+          9,
+          4,
+          10,
+          16,
+          9,
+          10,
+          5,
+          11,
+          17,
+          10,
+          15
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "RBB?DH\nRGGHDR\nLLLLLL\nBGDHRB\nGDHRBG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "unknown row L no diagonals",
+      "board": "LLL?LL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          1,
+          7,
+          6,
+          0,
+          1,
+          2,
+          8,
+          14,
+          13,
+          7,
+          1,
+          2,
+          8,
+          14,
+          13,
+          7,
+          6,
+          12,
+          13,
+          7,
+          8,
+          9,
+          10,
+          4,
+          5,
+          11,
+          17,
+          16,
+          10,
+          4,
+          5,
+          11,
+          17,
+          16,
+          10,
+          9,
+          15
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "RBG?HR\nRBGDDH\nLLLLLL\nBGDHRB\nGDHRBG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "unknown blob 4+ R",
+      "board": "LLL?LL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 4
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          7,
+          13,
+          20,
+          27,
+          21,
+          22,
+          17,
+          23
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LLL?LL\nLBBGDH\nRDGDHB\nBGRRRR\nGDHHBG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "sample 3 combos",
+      "board": "HRXHGL\nGJBJRG\nXRXGMD\nGPGRBL\nBLPLDB",
+      "goals": [
+        {
+          "type": "combos",
+          "count": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          19,
+          20,
+          13,
+          12,
+          19,
+          14,
+          7,
+          2
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "HRPHGL\nGXBJRG\nGXJGMD\nGXRRBL\nBLPLDB",
+        "rounds": 1
+      }
     }
   ]
 }

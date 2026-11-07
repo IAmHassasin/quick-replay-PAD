@@ -1,7 +1,11 @@
 package dev.quickreplay.pad
 
-/** One combo: [cells] sorted ascending; [pass] 0 = matched by the drag itself, 1+ = cascades. */
-class Combo(val color: Int, val cells: IntArray, val pass: Int)
+/**
+ * One combo: [cells] sorted ascending; [pass] 0 = matched by the drag itself, 1+ = cascades;
+ * [touchesUnknown]: an orb of the combo is orthogonally next to an unknown orb when it is matched,
+ * so a hidden orb of the same colour could join it.
+ */
+class Combo(val color: Int, val cells: IntArray, val pass: Int, val touchesUnknown: Boolean = false)
 
 /** Result of [Matcher.simulate]. [cells] is a scratch buffer, valid until the next call. */
 class Simulation(val combos: List<Combo>, val cells: IntArray)
@@ -12,7 +16,8 @@ class Simulation(val combos: List<Combo>, val cells: IntArray)
  * Rules (same as the dawnGlare simulator): 3+ orbs of one colour in a straight horizontal or
  * vertical line are matched; matched orbs of the same colour that touch orthogonally form one
  * combo. Matched orbs are removed, the rest fall, and the board is matched again until nothing
- * matches. Keeps scratch buffers, so one instance must not be used from two threads.
+ * matches. An orb of unknown colour ([Orbs.UNKNOWN]) never matches; it still falls like any orb.
+ * Keeps scratch buffers, so one instance must not be used from two threads.
  */
 class Matcher(private val rows: Int, private val cols: Int) {
     private val work = IntArray(rows * cols)
@@ -44,7 +49,7 @@ class Matcher(private val rows: Int, private val cols: Int) {
                 val color = board[base + c]
                 var e = c + 1
                 while (e < cols && board[base + e] == color) e++
-                if (color != Orbs.EMPTY && e - c >= 3) {
+                if (color != Orbs.EMPTY && color != Orbs.UNKNOWN && e - c >= 3) {
                     for (k in c until e) matched[base + k] = true
                     any = true
                 }
@@ -57,7 +62,7 @@ class Matcher(private val rows: Int, private val cols: Int) {
                 val color = board[r * cols + c]
                 var e = r + 1
                 while (e < rows && board[e * cols + c] == color) e++
-                if (color != Orbs.EMPTY && e - r >= 3) {
+                if (color != Orbs.EMPTY && color != Orbs.UNKNOWN && e - r >= 3) {
                     for (k in r until e) matched[k * cols + c] = true
                     any = true
                 }
@@ -71,6 +76,7 @@ class Matcher(private val rows: Int, private val cols: Int) {
             if (!matched[start] || seen[start]) continue
             val color = board[start]
             val comboCells = ArrayList<Int>()
+            var touchesUnknown = false
             var top = 0
             stack[top++] = start
             seen[start] = true
@@ -79,13 +85,18 @@ class Matcher(private val rows: Int, private val cols: Int) {
                 comboCells += i
                 val r = i / cols
                 val c = i - r * cols
+                if ((r > 0 && board[i - cols] == Orbs.UNKNOWN) || (r < rows - 1 && board[i + cols] == Orbs.UNKNOWN) ||
+                    (c > 0 && board[i - 1] == Orbs.UNKNOWN) || (c < cols - 1 && board[i + 1] == Orbs.UNKNOWN)
+                ) {
+                    touchesUnknown = true
+                }
                 if (r > 0) top = visit(i - cols, color, top)
                 if (r < rows - 1) top = visit(i + cols, color, top)
                 if (c > 0) top = visit(i - 1, color, top)
                 if (c < cols - 1) top = visit(i + 1, color, top)
             }
             comboCells.sort()
-            out += Combo(color, comboCells.toIntArray(), pass)
+            out += Combo(color, comboCells.toIntArray(), pass, touchesUnknown)
             count++
         }
         return count

@@ -120,6 +120,35 @@ the assignments searched. Both solvers follow the same order (vectors `tee l ...
 any one move`). The colour dropdowns of the popup and of the Android setup dialog have an "Any"
 entry.
 
+**Hazard orbs** (REHA-18, 2026-11-07). Letters: `P` Poison, `M` Mortal poison, `X` Bomb, `?` an
+orb of unknown colour (Super blind, Spinner). The dawnGlare reader maps `xbomb` → `X` and
+`spinner` → `?` (dawnGlare's own pattern letters are the first letter of the tilecolor, so a
+spinner is `S` in its `?patt=`). Rules, the same in JS and Kotlin:
+
+- **Poison, Mortal poison**: the result never matches them, neither by the drag nor by a cascade.
+  A board that matches one scores −100000 and ranks below every other board (`met` = −1), so it is
+  never the answer; when every path found matches poison the result is `impossible` (`Poison:
+  every path found matches Poison or Mortal poison orbs`). A Poison or Mortal poison goal is
+  `impossible` before the search. They are not counted for the combos possible nor for touching
+  pairs.
+- **Bomb**: bombs match like a colour (3+ in a line). 1 or 2 bombs → `impossible` before the
+  search (`Bomb: 2 bombs on the board, all bombs must be matched and a match needs 3`). 3+ bombs
+  add a last goal `All N bombs matched`, met when every bomb is in a combo (drag or cascade); its
+  placements are the lines of exactly N cells (the blob placements of N..N). A row met with bombs
+  left over is `partial`. Bombs never count for a colour goal; the explosion is not simulated.
+- **Unknown orb**: never matches and is not counted for any goal. It is never held or swapped (no
+  start cell, not a neighbour), so it keeps its cell during the drag. A combo next to it
+  (4 directions) when it is matched has `touchesUnknown` and does not count for a shape or blob goal
+  (a hidden orb of that colour would join it); shape and blob placements on or next to it are left
+  out of the heuristic (unless none is left). It still falls in cascades.
+- A Bomb or `?` is not a goal colour. Skyfall stays off, so "even after skyfall" in the owner's
+  rule is covered only for cascades of the orbs on the board.
+
+Owner board `https://pad.dawnglare.com/?s=unNHjo0` (resolved via dawnGlare's `l.php?link=`):
+`HRXHGL / GJBJRG / XRXGMD / GPGRBL / BLPLDB` (3 bombs, P 2, M 1); vectors `sample 3 combos` and the
+other hazard cases in `spec/pad-solver-vectors.json`, tests `browser/test/unit/pad-hazards.test.js`
+and `PadHazardTest.kt`. Screenshot recognition of these orbs on Android is REHA-19.
+
 **Anytime widening** (2026-10-18): rounds with W = 1000, 4000, 16000, 64000 until `timeLimitMs`
 (default 3 s); after the first solution a round only accepts a shorter path (or as long with more
 combos). Children are scored by swapping in place; only kept states copy the board (~1.5–2x
