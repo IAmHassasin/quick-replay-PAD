@@ -12,13 +12,18 @@ import { Matcher } from './matcher.js';
 import { SHAPE_LABELS, SHAPE_TYPES, blobPlacements, comboHasShape, shapeFits, shapePlacements, shapeSize } from './shapes.js';
 
 /**
- * Shapes, `combos` (at least N combos) and `blob` (one combo of a colour with at least `min`
- * connected orbs; a repeated blob goal needs another combo).
+ * Shapes, `combos` (at least N combos), `blob` (one combo of a colour with at least `min`
+ * connected orbs; a repeated blob goal needs another combo) and `colors` (combos of at least
+ * `count` distinct colours of the set `of`).
  */
-export const GOAL_TYPES = [...SHAPE_TYPES, 'combos', 'blob'];
+export const GOAL_TYPES = [...SHAPE_TYPES, 'combos', 'blob', 'colors'];
 
 /** Smallest `min` of a blob goal: a combo has at least 3 orbs. */
 export const BLOB_MIN = 3;
+
+/** Colours a `colors` goal may count (R, B, G, L, D, H) and its default set (the 5 attributes). */
+export const COLORS_SET_MAX = 6;
+export const COLORS_DEFAULT_OF = Object.freeze([0, 1, 2, 3, 4]);
 
 export const DEFAULT_OPTIONS = Object.freeze({
   diagonals: true,
@@ -60,6 +65,7 @@ export function normalizeGoals(goals, size) {
       if (!Number.isInteger(goal.count) || goal.count < 1) throw new Error(`${where}: combo count must be an integer >= 1`);
       return { type: 'combos', count: goal.count };
     }
+    if (goal.type === 'colors') return normalizeColorsGoal(goal, where);
     const color = typeof goal.color === 'number' ? goal.color : orbCode(goal.color ?? '');
     if (!Number.isInteger(color) || color < 0 || color >= ORB_COUNT) throw new Error(`${where}: unknown colour "${goal.color}"`);
     if (goal.type === 'blob') {
@@ -74,9 +80,49 @@ export function normalizeGoals(goals, size) {
   });
 }
 
-/** Human-readable goal, e.g. "Row of Light", "7+ combos" or "5+ Fire connected". */
+/**
+ * `{ type: 'colors', count, of? }`: `of` holds distinct letters R, B, G, L, D, H (or their orb
+ * codes), in any order; it defaults to the 5 attributes. Codes keep the given order (only
+ * membership matters to the solver).
+ */
+function normalizeColorsGoal(goal, where) {
+  const { count } = goal;
+  if (!Number.isInteger(count) || count < 1 || count > COLORS_SET_MAX) {
+    throw new Error(`${where}: colour count must be an integer from 1 to ${COLORS_SET_MAX}`);
+  }
+  let of = [...COLORS_DEFAULT_OF];
+  if (goal.of !== undefined) {
+    const codes = Array.isArray(goal.of)
+      ? goal.of.map((c) => (typeof c === 'number' ? c : typeof c === 'string' && c.length === 1 && c === c.toUpperCase() ? orbCode(c) : -1))
+      : [];
+    const valid = codes.length > 0 && new Set(codes).size === codes.length
+      && codes.every((c) => Number.isInteger(c) && c >= 0 && c < COLORS_SET_MAX);
+    if (!valid) throw new Error(`${where}: of must be a non-empty list of distinct colours R, B, G, L, D, H`);
+    of = codes;
+  }
+  if (count > of.length) throw new Error(`${where}: colour count must be at most ${of.length}, the colours in of`);
+  return { type: 'colors', count, of };
+}
+
+/** Bit mask of the colours of a normalised `colors` goal. */
+function colorsMask(goal) {
+  let mask = 0;
+  for (const color of goal.of) mask |= 1 << color;
+  return mask;
+}
+
+/**
+ * Human-readable goal, e.g. "Row of Light", "7+ combos", "5+ Fire connected", "3+ colours" or
+ * "2+ colours of Water, Heart" (a set other than the 5 attributes, in colour order).
+ */
 export function goalLabel(goal) {
   if (goal.type === 'combos') return `${goal.count}+ combos`;
+  if (goal.type === 'colors') {
+    const mask = colorsMask(goal);
+    if (mask === 0b11111) return `${goal.count}+ colours`;
+    const names = ORB_NAMES.slice(0, COLORS_SET_MAX).filter((_, color) => mask & (1 << color));
+    return `${goal.count}+ colours of ${names.join(', ')}`;
+  }
   if (goal.type === 'blob') return `${goal.min}+ ${ORB_NAMES[goal.color]} connected`;
   return `${SHAPE_LABELS[goal.type]} of ${ORB_NAMES[goal.color]}`;
 }
@@ -96,6 +142,17 @@ export function checkFeasibility(board, goals) {
     if (goal.type === 'combos') {
       const max = counts.reduce((sum, n) => sum + Math.floor(n / 3), 0);
       if (goal.count > max) reasons.push(`${goalLabel(goal)}: at most ${max} combos are possible on this board`);
+      continue;
+    }
+    if (goal.type === 'colors') {
+      // Each counted colour needs one combo of 3+ orbs; checked on its own, like `combos`.
+      const mask = colorsMask(goal);
+      const letters = ORB_LETTERS.slice(0, COLORS_SET_MAX).filter((_, color) => mask & (1 << color) && counts[color] >= 3);
+      const k = letters.length;
+      if (k < goal.count) {
+        reasons.push(`${goalLabel(goal)}: only ${k} ${k === 1 ? 'colour has' : 'colours have'} 3 or more orbs`
+          + `${k ? ` (${letters.join(', ')})` : ''}, the goal needs ${goal.count}`);
+      }
       continue;
     }
     if (goal.type === 'blob') {
@@ -415,12 +472,16 @@ class Evaluator {
     /** Goals met and combo count of the last {@link score} call. */
     this.met = 0;
     this.combos = 0;
+    /** Colour bit mask of each `colors` goal (0 for other goals). */
+    this.masks = units.map((unit) => (unit.type === 'colors' ? colorsMask(unit) : 0));
     // Goals that share type and colour (and blob size) need distinct combos; group them.
     this.groups = new Map();
     units.forEach((unit, index) => {
-      const k = unit.type === 'combos' ? 'combos' : unit.type === 'blob' ? `blob:${unit.color}:${unit.min}` : `${unit.type}:${unit.color}`;
+      // `colors` goals are about the whole turn, like `combos`: one group, each goal checked alone.
+      const k = unit.type === 'combos' || unit.type === 'colors' ? unit.type
+        : unit.type === 'blob' ? `blob:${unit.color}:${unit.min}` : `${unit.type}:${unit.color}`;
       if (!this.groups.has(k)) {
-        const targets = unit.type === 'combos' ? []
+        const targets = unit.type === 'combos' || unit.type === 'colors' ? []
           : unit.type === 'blob' ? blobPlacements(unit.min, rows, cols) : shapePlacements(unit.type, rows, cols);
         const placements = targets.map((p) => {
           const inside = new Uint8Array(n);
@@ -447,14 +508,17 @@ class Evaluator {
     for (const group of this.groups.values()) {
       const available = this.available(group, combos);
       group.indices.forEach((index, k) => {
-        met[index] = group.type === 'combos' ? combos.length >= this.units[index].count : k < available;
+        const unit = this.units[index];
+        if (group.type === 'combos') met[index] = combos.length >= unit.count;
+        else if (group.type === 'colors') met[index] = colorCount(combos, this.masks[index]) >= unit.count;
+        else met[index] = k < available;
       });
     }
     return met;
   }
 
   available(group, combos) {
-    if (group.type === 'combos') return combos.length;
+    if (group.type === 'combos' || group.type === 'colors') return combos.length;
     let n = 0;
     for (const combo of combos) {
       if (combo.color !== group.color) continue;
@@ -478,6 +542,24 @@ class Evaluator {
             met++;
           } else {
             score += (COMBO_GOAL_WEIGHT * combos.length) / want;
+            if (!pairsAdded) {
+              score += PAIR_WEIGHT * this.pairs(cells);
+              pairsAdded = true;
+            }
+          }
+        }
+        continue;
+      }
+      if (group.type === 'colors') {
+        // Like `combos`: the share of the colours reached, plus touching pairs (once per board).
+        for (const index of group.indices) {
+          const unit = this.units[index];
+          const have = colorCount(combos, this.masks[index]);
+          if (have >= unit.count) {
+            score += MET_SCORE;
+            met++;
+          } else {
+            score += (COMBO_GOAL_WEIGHT * have) / unit.count;
             if (!pairsAdded) {
               score += PAIR_WEIGHT * this.pairs(cells);
               pairsAdded = true;
@@ -574,6 +656,15 @@ class Evaluator {
     }
     return sum + left * maxDist;
   }
+}
+
+/** Number of distinct colours of `mask` among the combos. */
+function colorCount(combos, mask) {
+  let seen = 0;
+  for (const combo of combos) seen |= (1 << combo.color) & mask;
+  let n = 0;
+  for (let bits = seen; bits; bits &= bits - 1) n++;
+  return n;
 }
 
 /** Cells orthogonally adjacent to a placement but outside it. */

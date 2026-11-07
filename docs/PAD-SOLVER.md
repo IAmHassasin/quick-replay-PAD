@@ -79,6 +79,9 @@ the first depth where all goals are met or at `maxMoves`. Blob placements (2026-
 rectangles with `min ≤ h × w ≤ min + 2` and a side ≥ 3, by height, width, row, column (when none
 is that close, the smallest area ≥ `min`, e.g. the whole board for 73 on 9×9); they are not
 exact, so no border penalty. A blob goal is met by any combo of the colour with ≥ `min` orbs.
+A `colors` goal (2026-11-07) has no placements: it is met when the combos have ≥ `count` distinct
+colours of its set, and an unmet one scores like a combo-count goal (40 × colours reached /
+`count` + 2 per touching same-colour pair, the pairs counted once per board).
 
 **Anytime widening** (2026-10-18): rounds with W = 1000, 4000, 16000, 64000 until `timeLimitMs`
 (default 3 s); after the first solution a round only accepts a shorter path (or as long with more
@@ -173,6 +176,7 @@ before relying on it.
 | 4 in a line | Exactly 4 orbs | Two-pronged attack (TPA) |
 | Column | Full vertical line | Some leader skills (verify) |
 | Blob (goal `blob`, `min` N) | At least N connected orbs in one combo, any shape | "N+ connected" leaders; a colour set = one blob `min` 3 per colour; a repeated goal = separate combos |
+| Colours (goal `colors`, `count` K, `of`) | Combos of at least K distinct colours of `of` (default R, B, G, L, D) | Rainbow leaders ("3色以上同時攻撃"); add H for "5色+回復" |
 
 ## Proposed pipeline (Android)
 

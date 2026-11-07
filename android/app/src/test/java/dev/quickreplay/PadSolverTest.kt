@@ -104,6 +104,9 @@ class PadSolverTest {
         when (g.getString("type")) {
             "combos" -> Goal.Combos(g.getInt("count"))
             "blob" -> Goal.Blob(Orbs.code(g.getString("color")[0]), g.getInt("min"))
+            "colors" -> g.optJSONArray("of")
+                ?.let { of -> Goal.Colors(g.getInt("count"), List(of.length()) { k -> Orbs.code(of.getString(k)[0]) }) }
+                ?: Goal.Colors(g.getInt("count"))
             else -> Goal.Shape(g.getString("type"), Orbs.code(g.getString("color")[0]))
         }
     }

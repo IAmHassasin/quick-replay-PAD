@@ -483,3 +483,77 @@ test('blob placements exist for every min on every board size', () => {
     }
   }
 });
+
+// --- colors: at least K distinct colours among the combos (REHA-12) ------------------------------
+
+// One swap of r0c2 and r0c3 makes R R R B B B in row 0 (two colours); the three hearts are apart,
+// so no single move makes a Heart combo. No initial match.
+const DUO = 'RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD'; // R3 B3 G6 L7 D7 H3
+
+const colors = (count, of) => (of ? { type: 'colors', count, of } : { type: 'colors', count });
+
+/** Distinct colours of the combos that are in `of` (default: the 5 attributes). */
+function distinctColors(combos, of = ['R', 'B', 'G', 'L', 'D']) {
+  return new Set(combos.map((c) => c.color).filter((code) => of.map(orbCode).includes(code))).size;
+}
+
+test('colors: 3+ colours on the three board', () => {
+  const { result, combos } = assertSolved(THREE, [colors(3)]);
+  assert.deepEqual(result.goals, [{ label: '3+ colours', met: true }]);
+  assert.ok(distinctColors(combos) >= 3, `${distinctColors(combos)} colours`);
+});
+
+test('colors: impossible when fewer colours of the set have 3 orbs', () => {
+  assertImpossible(RBG, [colors(4)], ['4+ colours: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4']);
+  // Hearts are outside the default set; with them in the set the RBG board still has 3 (H2).
+  assertImpossible(RBG, [colors(4, ['R', 'B', 'G', 'H'])], [
+    '4+ colours of Fire, Water, Wood, Heart: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4',
+  ]);
+  // Colours outside `of` do not count: only Fire of R, L, D has 3+ orbs on the RBG board.
+  assertImpossible(RBG, [colors(2, ['R', 'L', 'D'])], [
+    '2+ colours of Fire, Light, Dark: only 1 colour has 3 or more orbs (R), the goal needs 2',
+  ]);
+  assertImpossible(RBG, [colors(1, ['L', 'D'])], ['1+ colours of Light, Dark: only 0 colours have 3 or more orbs, the goal needs 1']);
+});
+
+test('colors: a set with Heart counts a Heart combo as a colour', () => {
+  const { result, combos } = assertSolved(THREE, [colors(2, ['B', 'H'])]);
+  assert.equal(result.goals[0].label, '2+ colours of Water, Heart');
+  const found = new Set(combos.map((c) => c.color));
+  assert.ok(found.has(orbCode('B')) && found.has(orbCode('H')), 'a Water and a Heart combo');
+});
+
+test('colors: colours outside the set do not count', () => {
+  // One move makes Fire and Water combos: enough for the default set, not for Fire + Heart.
+  const { result } = assertSolved(DUO, [colors(2)], { ...OPTIONS, maxMoves: 1 });
+  assert.equal(result.moves, 1);
+  const board = parseBoard(DUO);
+  const unmet = solve(board, [colors(2, ['R', 'H'])], { ...OPTIONS, maxMoves: 1 });
+  assert.equal(unmet.status, 'partial');
+  assert.deepEqual(unmet.goals.map((g) => g.met), [false]);
+  // The order of the set does not change the result.
+  const reordered = solve(board, [colors(2, ['H', 'R'])], { ...OPTIONS, maxMoves: 1 });
+  assert.deepEqual(reordered.path, unmet.path);
+});
+
+test('colors: unmet with one move on the three board', () => {
+  assertUnmet(THREE, [colors(3)]);
+});
+
+test('colors: count from 1 to 6 and a non-empty set of distinct R, B, G, L, D, H', () => {
+  for (const count of [0, 7, -1, 2.5, '3', undefined, null]) {
+    assert.throws(() => normalizeGoals([colors(count)]), /Goal 1: colour count must be an integer from 1 to 6/, String(count));
+  }
+  for (const of of [[], 'RBG', ['R', 'J'], ['r'], ['R', 'R'], [6], ['X'], [null]]) {
+    assert.throws(() => normalizeGoals([colors(1, of)]), /Goal 1: of must be a non-empty list of distinct colours R, B, G, L, D, H/, JSON.stringify(of));
+  }
+  assert.throws(() => normalizeGoals([colors(3, ['R', 'B'])]), /Goal 1: colour count must be at most 2, the colours in of/);
+  assert.throws(() => normalizeGoals([colors(6)]), /at most 5/);
+  assert.deepEqual(normalizeGoals([colors(3)]), [{ type: 'colors', count: 3, of: [0, 1, 2, 3, 4] }]);
+  assert.deepEqual(normalizeGoals([colors(6, ['H', 'R', 'B', 'G', 'L', 'D'])]), [{ type: 'colors', count: 6, of: [5, 0, 1, 2, 3, 4] }]);
+  // Normalised goals (orb codes) normalise to themselves.
+  assert.deepEqual(normalizeGoals(normalizeGoals([colors(2, ['B', 'H'])])), [{ type: 'colors', count: 2, of: [1, 5] }]);
+  assert.equal(goalLabel(normalizeGoals([colors(3)])[0]), '3+ colours');
+  // The default set in another order is still the default label.
+  assert.equal(goalLabel(normalizeGoals([colors(5, ['D', 'L', 'G', 'B', 'R'])])[0]), '5+ colours');
+});

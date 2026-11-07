@@ -259,18 +259,23 @@ function addGoalRow(goal) {
   for (const value of SHAPE_TYPES) type.append(new Option(SHAPE_LABELS[value], value));
   type.append(new Option('Combos (at least)', 'combos'));
   type.append(new Option('Connected orbs (at least)', 'blob'));
+  type.append(new Option('Colours (at least)', 'colors'));
   for (const letter of GOAL_COLORS) color.append(new Option(ORB_NAMES[ORB_LETTERS.indexOf(letter)], letter));
   type.value = goal.type;
   color.value = goal.color ?? 'L';
   count.value = String(goal.count ?? goal.min ?? DEFAULT_COMBO_GOAL);
+  // The popup has no editor for the colour set of a `colors` goal; keep a stored one as it is.
+  if (goal.type === 'colors' && Array.isArray(goal.of)) item.dataset.of = JSON.stringify(goal.of);
   const sync = () => {
-    // A blob goal uses both the colour and the number (its minimum size).
+    // A blob goal uses both the colour and the number (its minimum size); a colours goal only
+    // the number (distinct colours, 1-6).
     const blob = type.value === 'blob';
-    color.hidden = type.value === 'combos';
-    count.hidden = type.value !== 'combos' && !blob;
+    const colors = type.value === 'colors';
+    color.hidden = type.value === 'combos' || colors;
+    count.hidden = type.value !== 'combos' && !blob && !colors;
     count.min = blob ? '3' : '1';
-    count.max = blob ? '81' : '40';
-    count.setAttribute('aria-label', blob ? 'Minimum connected orbs' : 'Combo count');
+    count.max = blob ? '81' : colors ? '6' : '40';
+    count.setAttribute('aria-label', blob ? 'Minimum connected orbs' : colors ? 'Distinct colours' : 'Combo count');
   };
   type.addEventListener('change', sync);
   sync();
@@ -282,6 +287,10 @@ function readPadSettings() {
     const type = item.querySelector('.goal-type').value;
     if (type === 'combos') return { type, count: Number(item.querySelector('.goal-count').value) };
     if (type === 'blob') return { type, color: item.querySelector('.goal-color').value, min: Number(item.querySelector('.goal-count').value) };
+    if (type === 'colors') {
+      const goal = { type, count: Number(item.querySelector('.goal-count').value) };
+      return item.dataset.of ? { ...goal, of: JSON.parse(item.dataset.of) } : goal;
+    }
     return { type, color: item.querySelector('.goal-color').value };
   });
   return {

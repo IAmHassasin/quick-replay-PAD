@@ -1246,6 +1246,326 @@
         "afterDrag": "BRRRRRRRR\nRBRRRRRRR\nRRBRBRRRR\nRRRRRRRRR\nRRRRBRRRR\nRRRRRBRRR\nRRRRRRBRR\nRRRRRRRBR\nRRRRRRRRR",
         "rounds": 1
       }
+    },
+    {
+      "name": "three colors 3+",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          12,
+          6,
+          1,
+          2,
+          3,
+          9
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 4,
+        "afterDrag": "RRRBBB\nLDHHHD\nGGGDGL\nLHBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "rbg colors 4+ impossible",
+      "board": "RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 4
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "4+ colours: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "three colors 2+ of B H",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2,
+          "of": [
+            "B",
+            "H"
+          ]
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          15,
+          14,
+          13,
+          19
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "RLRBBB\nGDHDHD\nHHGGGL\nLRBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "three colors 2+ of H B",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2,
+          "of": [
+            "H",
+            "B"
+          ]
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          15,
+          14,
+          13,
+          19
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "RLRBBB\nGDHDHD\nHHGGGL\nLRBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "duo colors 2+ one move",
+      "board": "RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          2,
+          3
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "RRRBBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "duo colors 2+ of R H one move unmet",
+      "board": "RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 2,
+          "of": [
+            "R",
+            "H"
+          ]
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          2,
+          3
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 2,
+        "afterDrag": "RRRBBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "three colors 3+ one move unmet",
+      "board": "RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          15,
+          16
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 1,
+        "afterDrag": "RLRRBB\nGDHBHD\nHGGGDL\nLHBLDR\nDBLHRG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc colors 4+ + 6 combos",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 4
+        },
+        {
+          "type": "combos",
+          "count": 6
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          24,
+          19,
+          14,
+          15,
+          10,
+          3,
+          9,
+          14,
+          15,
+          16,
+          10,
+          5
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 6,
+        "afterDrag": "LGHDBL\nLRDLBL\nBRGRLR\nHRRGBL\nBBBRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "shot colors 4+ of 6 + row G no diagonals",
+      "board": "LHDGHL\nHDLBHR\nGLBRGG\nGGBHBG\nHGLHBH",
+      "goals": [
+        {
+          "type": "colors",
+          "count": 4,
+          "of": [
+            "R",
+            "B",
+            "G",
+            "L",
+            "D",
+            "H"
+          ]
+        },
+        {
+          "type": "row",
+          "color": "G"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          12,
+          6,
+          7,
+          8,
+          14,
+          20,
+          19,
+          25,
+          26,
+          27,
+          21,
+          22,
+          16,
+          15,
+          21
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 4,
+        "afterDrag": "LHDGHL\nDLBBHR\nHLBBRG\nGGGGGG\nHLHHBH",
+        "rounds": 1
+      }
     }
   ]
 }

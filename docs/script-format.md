@@ -55,7 +55,7 @@ setup when REC starts; replaying always uses the script's own setup. When a reco
 
 | `pad` field | Type | Default | Notes |
 |---|---|---|---|
-| `goals` | array, ≥ 1 | — | `{ "type": "row" \| "column" \| "square" \| "cross" \| "lshape" \| "tpa", "color": "R" \| "B" \| "G" \| "L" \| "D" \| "H" }` , `{ "type": "combos", "count": n }` or `{ "type": "blob", "color": …, "min": n }` (one combo of the colour with at least `n` connected orbs, 3 ≤ `n` ≤ rows × cols; a repeated blob goal needs another combo: two `blob R 3` goals = two Fire combos, a colour set = one `blob` with `min` 3 per colour); all must be met |
+| `goals` | array, ≥ 1 | — | `{ "type": "row" \| "column" \| "square" \| "cross" \| "lshape" \| "tpa", "color": "R" \| "B" \| "G" \| "L" \| "D" \| "H" }` , `{ "type": "combos", "count": n }`, `{ "type": "blob", "color": …, "min": n }` (one combo of the colour with at least `n` connected orbs, 3 ≤ `n` ≤ rows × cols; a repeated blob goal needs another combo: two `blob R 3` goals = two Fire combos, a colour set = one `blob` with `min` 3 per colour) or `{ "type": "colors", "count": n, "of": ["R", …] }` (combos of at least `n` distinct colours of `of`, 1 ≤ `n` ≤ 6 and ≤ the colours in `of`; `of` is optional, distinct letters R, B, G, L, D, H, default the 5 attributes R, B, G, L, D; add `"H"` for "5 colours + heart"); all must be met |
 | `rows`, `cols` | integer 3–9 | 5, 6 | Board size |
 | `diagonals` | boolean | true | Allow diagonal moves |
 | `maxMoves` | integer 1–50 | 40 | |

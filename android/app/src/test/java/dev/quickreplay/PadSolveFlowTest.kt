@@ -193,6 +193,35 @@ class PadSolveFlowTest {
         assertEquals(big, PadSetup.fromJson(big.toJson()))
     }
 
+    @Test
+    fun scriptJsonKeepsColorsGoals() {
+        val custom = Goal.Colors(2, listOf(Orbs.code('H'), Orbs.code('B')))
+        val setup = PadSetup(goals = listOf(Goal.Colors(3), custom))
+        val script = Script("colors", ScreenSize(1080, 2400), listOf(Step.Solve()), pad = setup)
+        val json = ScriptJson.toJson(script)
+        assertTrue(json, json.contains("\"type\": \"colors\""))
+        assertTrue(json, json.contains("\"count\": 3"))
+        // The default set is not written; another set keeps its order.
+        assertEquals(json, 1, Regex("\"of\"").findAll(json).count())
+        assertTrue(json, Regex("\"of\": \\[\\s*\"H\",\\s*\"B\"\\s*]").containsMatchIn(json))
+        assertEquals(setup, ScriptJson.parse(json).pad)
+        assertEquals("3+ colours + 2+ colours of Water, Heart · 150 ms/move", setup.summary())
+        // An explicit default set in another order is kept as written.
+        val reordered = PadSetup(goals = listOf(Goal.Colors(5, listOf(4, 3, 2, 1, 0))))
+        assertEquals(reordered, PadSetup.fromJson(reordered.toJson()))
+
+        val count = "\"count\": 3"
+        val countError = "pad: pad.goals[0].count must be an integer from 1 to 6"
+        for (bad in listOf("0", "7", "2.5", "\"3\"")) assertFormatError(json.replace(count, "\"count\": $bad"), countError)
+        assertFormatError(json.replace(count, "\"count\": 6"), "pad: Colour count must be at most 5, the colours in the set")
+        val of = Regex("\"of\": \\[[^\\]]*]")
+        val ofError = "pad: pad.goals[1].of must be a non-empty array of distinct colours R, B, G, L, D, H"
+        for (bad in listOf("[]", "[\"H\", \"J\"]", "[\"h\"]", "[\"H\", \"H\"]", "\"HB\"", "[1]", "[\"HB\"]")) {
+            assertFormatError(json.replace(of, "\"of\": $bad"), ofError)
+        }
+        assertFormatError(json.replace(of, "\"of\": [\"H\"]"), "pad: Colour count must be at most 1, the colours in the set")
+    }
+
     private fun assertFormatError(json: String, message: String) {
         try {
             ScriptJson.parse(json)

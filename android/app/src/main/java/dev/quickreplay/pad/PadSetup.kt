@@ -33,7 +33,7 @@ data class PadSetup(
             val color = when (goal) {
                 is Goal.Shape -> goal.color
                 is Goal.Blob -> goal.color
-                is Goal.Combos -> continue
+                is Goal.Combos, is Goal.Colors -> continue
             }
             require(color < Orbs.ATTRIBUTES) { "Goal colour must be R, B, G, L, D or H" }
             if (goal is Goal.Blob) goal.checkSize(rows, cols)
@@ -114,6 +114,10 @@ data class PadSetup(
             is Goal.Combos -> JSONObject().put("type", "combos").put("count", goal.count)
             is Goal.Shape -> JSONObject().put("type", goal.type).put("color", Orbs.LETTERS[goal.color].toString())
             is Goal.Blob -> JSONObject().put("type", "blob").put("color", Orbs.LETTERS[goal.color].toString()).put("min", goal.min)
+            // The default set (the 5 attributes in colour order) is not written.
+            is Goal.Colors -> JSONObject().put("type", "colors").put("count", goal.count).also { json ->
+                if (goal.set != Goal.Colors.DEFAULT_SET) json.put("of", JSONArray(goal.set.map { Orbs.LETTERS[it].toString() }))
+            }
         }
 
         private fun parseGoal(json: JSONObject, at: String): Goal {
@@ -125,6 +129,7 @@ data class PadSetup(
                 }
                 return Goal.Combos(count.toInt())
             }
+            if (type == "colors") return parseColorsGoal(json, at)
             require(type in Shapes.TYPES || type == "blob") { "$at.type \"$type\" is not a goal type" }
             // Upper-case only, like the browser validator and the schema.
             val letter = json.opt("color") as? String
@@ -140,6 +145,24 @@ data class PadSetup(
                 return Goal.Blob(color, min.toInt())
             }
             return Goal.Shape(type, color)
+        }
+
+        /** `{type: "colors", count, of?}`; a count above the colours of `of` is rejected by [Goal.Colors]. */
+        private fun parseColorsGoal(json: JSONObject, at: String): Goal.Colors {
+            val count = json.opt("count") as? Number
+            require(count != null && count.toDouble() == Math.floor(count.toDouble()) && count.toDouble() in 1.0..Orbs.ATTRIBUTES.toDouble()) {
+                "$at.count must be an integer from 1 to ${Orbs.ATTRIBUTES}"
+            }
+            if (!json.has("of")) return Goal.Colors(count.toInt())
+            val error = "$at.of must be a non-empty array of distinct colours R, B, G, L, D, H"
+            val array = json.opt("of") as? JSONArray ?: throw IllegalArgumentException(error)
+            // Upper-case letters only, like the browser validator and the schema.
+            val set = List(array.length()) { k ->
+                val letter = array.opt(k) as? String
+                if (letter != null && letter.length == 1 && letter[0].isUpperCase()) Orbs.code(letter[0]) else -1
+            }
+            require(set.isNotEmpty() && set.toSet().size == set.size && set.all { it in 0 until Orbs.ATTRIBUTES }) { error }
+            return Goal.Colors(count.toInt(), set)
         }
     }
 }

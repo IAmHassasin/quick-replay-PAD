@@ -22,7 +22,11 @@ const BIG = 'RGBLDHR\nBRGLHDB\nGBRLDHG\nLGBRHDL\nDLGBRHD\nHDLGBRH';
 const BLOB = 'RRBRRG\nGLRDHB\nBGLDHL\nHDBGLR\nLBHGDB';
 const THREE = 'RLRRBB\nGDHBHD\nHGGDGL\nLHBLDR\nDBLHRG';
 const TWICE = 'RRBRGL\nGRLHBD\nRHRBLG\nBLGDHB\nDGHLRH';
-const FULL = Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
+// Colours boards: RBG of the proposed cases (R8 B8 G8 L2 D2 H2); DUO, where one swap in row 0
+// makes R R R B B B and no single move makes a Heart combo.
+const RBG = 'RBGRBG\nBGRBGR\nGRBGRB\nRBGRBG\nLDHLDH';
+const DUO = 'RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD';
+const FULL =Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
 const twoRounds = { timeLimitMs: 600000, maxBeamWidth: 4000 };
@@ -66,6 +70,18 @@ const cases = [
   ['doc blob 6+ B + row L', DOC, [{ type: 'blob', color: 'B', min: 6 }, { type: 'row', color: 'L' }], single],
   ['doc blob 4+ R no diagonals', DOC, [{ type: 'blob', color: 'R', min: 4 }], { ...single, diagonals: false }],
   ['full 9x9 blob 73+ R', FULL, [{ type: 'blob', color: 'R', min: 73 }], { ...single, maxMoves: 8 }],
+  // Colours goals (REHA-12): K+ distinct colours, impossible, a set with hearts (both orders: the
+  // order must not matter), colours outside the set, unmet, and mixed with a combo-count goal
+  // (touching pairs are added once per board).
+  ['three colors 3+', THREE, [{ type: 'colors', count: 3 }], single],
+  ['rbg colors 4+ impossible', RBG, [{ type: 'colors', count: 4 }], single],
+  ['three colors 2+ of B H', THREE, [{ type: 'colors', count: 2, of: ['B', 'H'] }], single],
+  ['three colors 2+ of H B', THREE, [{ type: 'colors', count: 2, of: ['H', 'B'] }], single],
+  ['duo colors 2+ one move', DUO, [{ type: 'colors', count: 2 }], { ...single, maxMoves: 1 }],
+  ['duo colors 2+ of R H one move unmet', DUO, [{ type: 'colors', count: 2, of: ['R', 'H'] }], { ...single, maxMoves: 1 }],
+  ['three colors 3+ one move unmet', THREE, [{ type: 'colors', count: 3 }], { ...single, maxMoves: 1 }],
+  ['doc colors 4+ + 6 combos', DOC, [{ type: 'colors', count: 4 }, { type: 'combos', count: 6 }], single],
+  ['shot colors 4+ of 6 + row G no diagonals', SHOT, [{ type: 'colors', count: 4, of: ['R', 'B', 'G', 'L', 'D', 'H'] }, { type: 'row', color: 'G' }], { ...single, diagonals: false }],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {

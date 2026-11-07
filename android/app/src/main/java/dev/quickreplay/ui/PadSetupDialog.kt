@@ -19,8 +19,9 @@ import dev.quickreplay.pad.Shapes
  * when the goals cannot be met. Invalid input keeps the dialog open with a message.
  */
 internal object PadSetupDialog {
-    private val TYPES = Shapes.TYPES + "combos" + "blob"
-    private val TYPE_LABELS = Shapes.TYPES.map { Shapes.LABELS.getValue(it) } + "Combos (at least)" + "Connected orbs (at least)"
+    private val TYPES = Shapes.TYPES + "combos" + "blob" + "colors"
+    private val TYPE_LABELS =
+        Shapes.TYPES.map { Shapes.LABELS.getValue(it) } + "Combos (at least)" + "Connected orbs (at least)" + "Colours (at least)"
     private val COLOR_LABELS = Orbs.NAMES.take(Orbs.ATTRIBUTES)
 
     fun show(activity: Activity, title: String, initial: PadSetup, onSave: (PadSetup) -> Unit) {
@@ -105,22 +106,27 @@ internal object PadSetupDialog {
             val initialColor = when (goal) {
                 is Goal.Shape -> goal.color
                 is Goal.Blob -> goal.color
-                is Goal.Combos -> Orbs.code('L')
+                is Goal.Combos, is Goal.Colors -> Orbs.code('L')
             }
             setSelection(initialColor.coerceIn(0, Orbs.ATTRIBUTES - 1))
         }
-        // The number field is the combo count, or the minimum size of a blob goal.
+        // The number field is the combo count, the minimum size of a blob goal or the colour count.
         val initialNumber = when (goal) {
             is Goal.Combos -> goal.count
             is Goal.Blob -> goal.min
+            is Goal.Colors -> goal.count
             is Goal.Shape -> 7
         }
         val count = Ui.input(activity, initialNumber.toString(), number = true).apply { minEms = 2 }
         fun sync() {
             val kind = TYPES[type.selectedItemPosition]
-            color.visibility = if (kind == "combos") android.view.View.GONE else android.view.View.VISIBLE
-            count.visibility = if (kind == "combos" || kind == "blob") android.view.View.VISIBLE else android.view.View.GONE
-            count.contentDescription = if (kind == "blob") "Minimum connected orbs" else "Combo count"
+            color.visibility = if (kind == "combos" || kind == "colors") android.view.View.GONE else android.view.View.VISIBLE
+            count.visibility = if (kind == "combos" || kind == "blob" || kind == "colors") android.view.View.VISIBLE else android.view.View.GONE
+            count.contentDescription = when (kind) {
+                "blob" -> "Minimum connected orbs"
+                "colors" -> "Distinct colours"
+                else -> "Combo count"
+            }
         }
         type.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) = sync()
@@ -137,12 +143,13 @@ internal object PadSetupDialog {
             Ui.button(activity, "✕") { container.removeView(row) }.apply { contentDescription = "Remove goal" },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT),
         )
-        row.tag = GoalRow(type, color, count)
+        // No editor for the colour set yet: an existing set is kept as it is.
+        row.tag = GoalRow(type, color, count, (goal as? Goal.Colors)?.set ?: Goal.Colors.DEFAULT_SET)
         container.addView(row, Ui.spacedParams(activity, 4))
     }
 
     /** Views of one goal row, kept in the row's tag. */
-    private class GoalRow(val type: Spinner, val color: Spinner, val count: EditText)
+    private class GoalRow(val type: Spinner, val color: Spinner, val count: EditText, val colorSet: List<Int>)
 
     private fun readGoals(container: LinearLayout): List<Goal> = (0 until container.childCount).map { i ->
         val row = container.getChildAt(i).tag as GoalRow
@@ -152,6 +159,10 @@ internal object PadSetupDialog {
             "blob" -> Goal.Blob(
                 row.color.selectedItemPosition,
                 row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Connected orbs must be a number"),
+            )
+            "colors" -> Goal.Colors(
+                row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Colour count must be a number"),
+                row.colorSet,
             )
             else -> Goal.Shape(kind, row.color.selectedItemPosition)
         }

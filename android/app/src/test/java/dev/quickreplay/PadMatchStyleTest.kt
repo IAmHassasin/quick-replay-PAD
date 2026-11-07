@@ -519,4 +519,93 @@ class PadMatchStyleTest {
         // 73 on 9x9: no rectangle of 73 to 75 orbs, so the smallest area >= 73 (the whole board).
         assertEquals(listOf(81), Shapes.blobPlacements(73, 9, 9).map { it.cells.size })
     }
+
+    // --- colors: at least K distinct colours among the combos (REHA-12) ------------------------------
+
+    // One swap of r0c2 and r0c3 makes R R R B B B in row 0 (two colours); the three hearts are apart,
+    // so no single move makes a Heart combo. No initial match.
+    private val duo = "RRBRBB\nGLDGLD\nDGLDGH\nLDHLDG\nGHLGLD" // R3 B3 G6 L7 D7 H3
+
+    private fun colors(count: Int, of: String? = null) =
+        if (of == null) Goal.Colors(count) else Goal.Colors(count, of.map { Orbs.code(it) })
+
+    /** Distinct colours of the combos that are in [of] (default: the 5 attributes). */
+    private fun distinctColors(combos: List<Combo>, of: String = "RBGLD") =
+        combos.map { it.color }.filter { it in of.map { c -> Orbs.code(c) } }.toSet().size
+
+    @Test
+    fun colorsThreePlusColoursOnTheThreeBoard() {
+        val s = assertSolved(three, listOf(colors(3)))
+        assertEquals(listOf(GoalResult("3+ colours", true)), s.result.goals)
+        assertTrue("${distinctColors(s.combos)} colours", distinctColors(s.combos) >= 3)
+    }
+
+    @Test
+    fun colorsImpossibleWhenFewerColoursOfTheSetHaveThreeOrbs() {
+        assertImpossible(rbg, listOf(colors(4)), listOf("4+ colours: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4"))
+        // Hearts are outside the default set; with them in the set the RBG board still has 3 (H2).
+        assertImpossible(
+            rbg, listOf(colors(4, "RBGH")),
+            listOf("4+ colours of Fire, Water, Wood, Heart: only 3 colours have 3 or more orbs (R, B, G), the goal needs 4"),
+        )
+        // Colours outside the set do not count: only Fire of R, L, D has 3+ orbs on the RBG board.
+        assertImpossible(
+            rbg, listOf(colors(2, "RLD")),
+            listOf("2+ colours of Fire, Light, Dark: only 1 colour has 3 or more orbs (R), the goal needs 2"),
+        )
+        assertImpossible(rbg, listOf(colors(1, "LD")), listOf("1+ colours of Light, Dark: only 0 colours have 3 or more orbs, the goal needs 1"))
+    }
+
+    @Test
+    fun colorsSetWithHeartCountsAHeartCombo() {
+        val s = assertSolved(three, listOf(colors(2, "BH")))
+        assertEquals("2+ colours of Water, Heart", s.result.goals[0].label)
+        val found = s.combos.map { it.color }.toSet()
+        assertTrue("a Water and a Heart combo", Orbs.code('B') in found && Orbs.code('H') in found)
+    }
+
+    @Test
+    fun colorsOutsideTheSetDoNotCount() {
+        // One move makes Fire and Water combos: enough for the default set, not for Fire + Heart.
+        val s = assertSolved(duo, listOf(colors(2)), options.copy(maxMoves = 1))
+        assertEquals(1, s.result.moves)
+        val board = Board.parse(duo)
+        val unmet = Solver.solve(board, listOf(colors(2, "RH")), options.copy(maxMoves = 1))
+        assertEquals("partial", unmet.status)
+        assertEquals(listOf(false), unmet.goals.map { it.met })
+        // The order of the set does not change the result.
+        val reordered = Solver.solve(board, listOf(colors(2, "HR")), options.copy(maxMoves = 1))
+        assertEquals(unmet.path, reordered.path)
+    }
+
+    @Test
+    fun colorsUnmetWithOneMoveOnTheThreeBoard() {
+        assertUnmet(three, listOf(colors(3)))
+    }
+
+    @Test
+    fun colorsCountFromOneToSixAndANonEmptySetOfDistinctAttributes() {
+        for (count in listOf(0, 7, -1)) {
+            val e = assertThrows("count $count", IllegalArgumentException::class.java) { colors(count, "RBGLDH") }
+            assertEquals("Colour count must be from 1 to 6", e.message)
+        }
+        for (of in listOf(emptyList(), listOf(Orbs.code('J')), listOf(0, 0), listOf(-1), listOf(Orbs.COUNT))) {
+            val e = assertThrows("of $of", IllegalArgumentException::class.java) { Goal.Colors(1, of) }
+            assertEquals("Colour set must be a non-empty list of distinct colours R, B, G, L, D, H", e.message)
+        }
+        assertEquals(
+            "Colour count must be at most 2, the colours in the set",
+            assertThrows(IllegalArgumentException::class.java) { colors(3, "RB") }.message,
+        )
+        assertEquals(
+            "Colour count must be at most 5, the colours in the set",
+            assertThrows(IllegalArgumentException::class.java) { colors(6) }.message,
+        )
+        assertEquals(listOf(0, 1, 2, 3, 4), colors(3).set)
+        assertEquals(listOf(5, 0, 1, 2, 3, 4), colors(6, "HRBGLD").set)
+        assertEquals("3+ colours", colors(3).label)
+        // The default set in another order is still the default label.
+        assertEquals("5+ colours", colors(5, "DLGBR").label)
+        assertEquals("colors", colors(1).type)
+    }
 }

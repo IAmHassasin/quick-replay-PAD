@@ -136,10 +136,12 @@ function validatePad(pad, add) {
       let ok = false;
       if (isObject(g) && g.type === 'combos') ok = Number.isInteger(g.count) && g.count >= 1;
       else if (isObject(g) && g.type === 'blob') ok = PAD_COLORS.includes(g.color) && Number.isInteger(g.min) && g.min >= 3 && g.min <= cells;
+      else if (isObject(g) && g.type === 'colors') ok = validColorsGoal(g);
       else if (isObject(g)) ok = PAD_SHAPES.includes(g.type) && PAD_COLORS.includes(g.color);
       if (!ok) {
         add(`pad.goals[${i}] must be { type: shape, color: R|B|G|L|D|H }, { type: "combos", count: integer >= 1 }`
-          + ` or { type: "blob", color: R|B|G|L|D|H, min: integer from 3 to rows x cols }`);
+          + `, { type: "blob", color: R|B|G|L|D|H, min: integer from 3 to rows x cols }`
+          + ` or { type: "colors", count: integer from 1 to 6, of?: distinct R|B|G|L|D|H (at least count) }`);
       }
     });
   }
@@ -151,6 +153,14 @@ function validatePad(pad, add) {
   }
   if (pad.diagonals !== undefined && typeof pad.diagonals !== 'boolean') add('pad.diagonals must be a boolean');
   if (pad.whenUnmet !== undefined && !['fail', 'dragBest'].includes(pad.whenUnmet)) add('pad.whenUnmet must be "fail" or "dragBest"');
+}
+
+/** `{ type: "colors", count, of? }`: count 1-6, `of` distinct colour letters, at least `count` of them. */
+function validColorsGoal(g) {
+  if (!Number.isInteger(g.count) || g.count < 1 || g.count > PAD_COLORS.length) return false;
+  if (g.of === undefined) return g.count <= 5;
+  return Array.isArray(g.of) && g.of.length >= g.count && new Set(g.of).size === g.of.length
+    && g.of.every((c) => PAD_COLORS.includes(c));
 }
 
 function validateStep(step, path, allowedTypes, add) {

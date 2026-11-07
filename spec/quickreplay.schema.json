@@ -66,6 +66,21 @@
             "min": { "type": "integer", "minimum": 3, "maximum": 81 }
           },
           "required": ["type", "color", "min"]
+        },
+        {
+          "type": "object",
+          "description": "Combos of at least `count` distinct colours of `of` (default the 5 attributes R, B, G, L, D; add H for hearts). `count` must not exceed the colours in `of`.",
+          "properties": {
+            "type": { "const": "colors" },
+            "count": { "type": "integer", "minimum": 1, "maximum": 6 },
+            "of": {
+              "type": "array",
+              "items": { "enum": ["R", "B", "G", "L", "D", "H"] },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": ["type", "count"]
         }
       ]
     },

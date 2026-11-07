@@ -300,7 +300,11 @@ function intInRange(value, name, min, max) {
 function checkPadSettings(input) {
   const s = { ...PAD_DEFAULT_SETTINGS, ...input };
   // The board size is only known at solve time, which checks a blob size against it.
-  const goals = normalizeGoals(s.goals).map((g) => (g.type === 'combos' ? g : { ...g, color: ORB_LETTERS[g.color] }));
+  const goals = normalizeGoals(s.goals).map((g) => {
+    if (g.type === 'combos') return g;
+    if (g.type === 'colors') return { ...g, of: g.of.map((code) => ORB_LETTERS[code]) };
+    return { ...g, color: ORB_LETTERS[g.color] };
+  });
   // Solve & drag must only run for goals the user chose.
   if (goals.length === 0) throw new Error('Add at least one goal');
   return {
