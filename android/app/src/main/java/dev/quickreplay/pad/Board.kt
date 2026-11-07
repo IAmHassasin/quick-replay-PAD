@@ -16,6 +16,9 @@ object Orbs {
     /** Codes that may be goal colours (R to M); Bomb and unknown orbs never are. */
     const val GOAL_COLORS = 9
 
+    /** Jammer: matches like an attribute colour. */
+    const val JAMMER = 6
+
     /** Must never be matched, not even by a cascade. */
     const val POISON = 7
     const val MORTAL_POISON = 8

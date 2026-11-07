@@ -38,8 +38,14 @@ Recognition: grid search on a downscaled chroma map (cell centres colourful, inn
 dull), then **edge refinement**: the left/right/top/bottom extent of strongly coloured pixels of
 each orb, least-squares fit of left/top/cell. Orbs: hue votes of saturated, bright pixels on a ring
 at 33–44 % of the cell around each centre (skins keep the attribute colour on the outer ring).
-Tests (`BoardRecognizerTest`): 5 screenshots, 150/150 orbs right, including the watermelon skin;
-grid within 0.5 px of the DOM geometry on dawnGlare.
+Special orbs are checked before the colour ring (a Poison skull's purple rim would pass for Heart
+or Dark): gold in the cell corners → Spinner `?`; black centre → Super blind `?`; white skull in the
+centre → Poison `P`, Mortal poison `M` when the ring is also black (spiky frame); dark centre →
+Bomb `X`; dark ring around a blue centre → Jammer `J` (dawnGlare picture).
+Tests (`BoardRecognizerTest`): 11 screenshots, 330/330 orbs right, including the watermelon skin,
+4 dawnGlare hazard boards (`dawnglare-hazards-N`, from `tools/pad-fixtures/capture-dawnglare.cjs`)
+and the owner's 2 in-game screenshots with Super blind and Spinners; grid within 0.5 px of the DOM
+geometry on dawnGlare.
 
 Verified on the emulator (QR_API35, software rendering, dawnGlare in Chrome "Desktop site"):
 
@@ -53,8 +59,9 @@ Verified on the emulator (QR_API35, software rendering, dawnGlare in Chrome "Des
 | Memory: a `HashSet<Long>` of states caused an OOM (192 MB heap); screenshots were kept alive through the binder callback (+20–30 MB per solve) | after the fixes: heap 2 MB after GC following 4 solves (debug `MEMORY` command) |
 
 Not verified: the real PAD app (not installable on this emulator), physical devices, other skins
-than the watermelon screenshot, special orbs (jammer, poison, bombs, locks, blind: recognition
-fails on them, so the step stops).
+than the watermelon screenshot, locks and other special orbs (recognition fails on them, so the step
+stops). Poison, Mortal poison, Bomb and Jammer are only tested on dawnGlare pictures (the in-game
+ones may look different); Super blind and Spinner on the owner's 2 in-game screenshots.
 
 ## Implemented (browser extension)
 
@@ -147,7 +154,7 @@ spinner is `S` in its `?patt=`). Rules, the same in JS and Kotlin:
 Owner board `https://pad.dawnglare.com/?s=unNHjo0` (resolved via dawnGlare's `l.php?link=`):
 `HRXHGL / GJBJRG / XRXGMD / GPGRBL / BLPLDB` (3 bombs, P 2, M 1); vectors `sample 3 combos` and the
 other hazard cases in `spec/pad-solver-vectors.json`, tests `browser/test/unit/pad-hazards.test.js`
-and `PadHazardTest.kt`. Screenshot recognition of these orbs on Android is REHA-19.
+and `PadHazardTest.kt`. Screenshot recognition of these orbs on Android: REHA-19 (see Recognition above).
 
 **Anytime widening** (2026-10-18): rounds with W = 1000, 4000, 16000, 64000 until `timeLimitMs`
 (default 3 s); after the first solution a round only accepts a shorter path (or as long with more
