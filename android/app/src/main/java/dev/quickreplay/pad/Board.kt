@@ -5,10 +5,26 @@ package dev.quickreplay.pad
  * give the same results (checked by the shared vectors in `spec/pad-solver-vectors.json`).
  */
 object Orbs {
-    /** Orb letters, indexed by orb code. R Fire, B Water, G Wood, L Light, D Dark, H Heart, J Jammer, P Poison, M Mortal poison. */
-    val LETTERS = charArrayOf('R', 'B', 'G', 'L', 'D', 'H', 'J', 'P', 'M')
-    val NAMES = listOf("Fire", "Water", "Wood", "Light", "Dark", "Heart", "Jammer", "Poison", "Mortal poison")
-    const val COUNT = 9
+    /**
+     * Orb letters, indexed by orb code. R Fire, B Water, G Wood, L Light, D Dark, H Heart, J Jammer,
+     * P Poison, M Mortal poison, X Bomb, ? an orb of unknown colour (Super blind, Spinner).
+     */
+    val LETTERS = charArrayOf('R', 'B', 'G', 'L', 'D', 'H', 'J', 'P', 'M', 'X', '?')
+    val NAMES = listOf("Fire", "Water", "Wood", "Light", "Dark", "Heart", "Jammer", "Poison", "Mortal poison", "Bomb", "Unknown")
+    const val COUNT = 11
+
+    /** Codes that may be goal colours (R to M); Bomb and unknown orbs never are. */
+    const val GOAL_COLORS = 9
+
+    /** Must never be matched, not even by a cascade. */
+    const val POISON = 7
+    const val MORTAL_POISON = 8
+
+    /** Every bomb on the board must be matched (so 1 or 2 bombs make any goal impossible). */
+    const val BOMB = 9
+
+    /** Colour unknown to the solver: never matched, never dragged, and pattern combos must not touch it. */
+    const val UNKNOWN = 10
 
     /** Code of a cell emptied by a match (only used while simulating). */
     const val EMPTY = 255

@@ -10,7 +10,8 @@
     .tile { box-sizing: border-box; border: 2px solid #333; }
     .red { background: #e33; } .blue { background: #36e; } .green { background: #3b4; }
     .light { background: #ee4; } .dark { background: #a3c; } .heart { background: #f9c; }
-    .black { background: #000; } .xbomb { background: #777; }
+    .black { background: #000; } .xbomb { background: #777; } .jammer { background: #ccc; }
+    .poison { background: #636; } .mortalpoison { background: #313; } .spinner { background: #fa0; }
   </style>
 </head>
 <body>
@@ -23,7 +24,11 @@
   -->
   <div id="board"><div id="tiles"></div></div>
   <script>
-    const COLORS = { R: 'red', B: 'blue', G: 'green', L: 'light', D: 'dark', H: 'heart', Z: 'black', X: 'xbomb' };
+    // Pattern letters as in dawnGlare (first letter of the tilecolor), Z for an empty cell.
+    const COLORS = {
+      R: 'red', B: 'blue', G: 'green', L: 'light', D: 'dark', H: 'heart', Z: 'black',
+      J: 'jammer', P: 'poison', M: 'mortalpoison', X: 'xbomb', S: 'spinner',
+    };
     const W = 6, H = 5, SIZE = 90, CORNER = 10;
     const patt = new URLSearchParams(location.search).get('patt') || 'LGHLBBLRDDGLBRRLRRHBRGBLLBBRRD';
     const tilesEl = document.getElementById('tiles');

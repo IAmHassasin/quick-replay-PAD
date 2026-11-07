@@ -4,9 +4,10 @@
  * Rules (same as the dawnGlare simulator's `getMatches`): 3+ orbs of one colour in a straight
  * horizontal or vertical line are matched; matched orbs of the same colour that touch
  * orthogonally form one combo. Matched orbs are removed, the rest fall, and the board is matched
- * again until nothing matches. No new orbs fall in, so cascades are deterministic.
+ * again until nothing matches. No new orbs fall in, so cascades are deterministic. An orb of
+ * unknown colour (`UNKNOWN`) never matches; it still falls like any orb.
  */
-import { EMPTY } from './board.js';
+import { EMPTY, UNKNOWN } from './board.js';
 
 /**
  * Reusable simulator for one board size (keeps scratch buffers to avoid allocations in the
@@ -26,8 +27,10 @@ export class Matcher {
   /**
    * Runs match → gravity → cascades on a copy of `cells`.
    * @param {Uint8Array} cells Board before matching; not modified.
-   * @returns {{combos: Array<{color: number, cells: number[], pass: number}>, cells: Uint8Array}}
-   *   Combos in match order (`pass` 0 = matched by the drag itself, 1+ = cascades), and the
+   * @returns {{combos: Array<{color: number, cells: number[], pass: number, touchesUnknown: boolean}>, cells: Uint8Array}}
+   *   Combos in match order (`pass` 0 = matched by the drag itself, 1+ = cascades;
+   *   `touchesUnknown`: an orb of the combo is orthogonally next to an unknown orb when it is
+   *   matched, so a hidden orb of the same colour could join it), and the
    *   final board (`EMPTY` where orbs were removed). The returned `cells` is a scratch buffer,
    *   valid until the next call.
    */
@@ -57,7 +60,7 @@ export class Matcher {
         const color = board[base + c];
         let e = c + 1;
         while (e < cols && board[base + e] === color) e++;
-        if (color !== EMPTY && e - c >= 3) {
+        if (color !== EMPTY && color !== UNKNOWN && e - c >= 3) {
           for (let k = c; k < e; k++) matched[base + k] = 1;
           any = true;
         }
@@ -70,7 +73,7 @@ export class Matcher {
         const color = board[r * cols + c];
         let e = r + 1;
         while (e < rows && board[e * cols + c] === color) e++;
-        if (color !== EMPTY && e - r >= 3) {
+        if (color !== EMPTY && color !== UNKNOWN && e - r >= 3) {
           for (let k = r; k < e; k++) matched[k * cols + c] = 1;
           any = true;
         }
@@ -85,6 +88,7 @@ export class Matcher {
       if (!matched[start] || seen[start]) continue;
       const color = board[start];
       const comboCells = [];
+      let touchesUnknown = false;
       let top = 0;
       stack[top++] = start;
       seen[start] = 1;
@@ -93,13 +97,15 @@ export class Matcher {
         comboCells.push(i);
         const r = (i / cols) | 0;
         const c = i - r * cols;
+        if ((r > 0 && board[i - cols] === UNKNOWN) || (r < rows - 1 && board[i + cols] === UNKNOWN)
+          || (c > 0 && board[i - 1] === UNKNOWN) || (c < cols - 1 && board[i + 1] === UNKNOWN)) touchesUnknown = true;
         if (r > 0) top = this.visit(board, i - cols, color, top);
         if (r < rows - 1) top = this.visit(board, i + cols, color, top);
         if (c > 0) top = this.visit(board, i - 1, color, top);
         if (c < cols - 1) top = this.visit(board, i + 1, color, top);
       }
       comboCells.sort((a, b) => a - b);
-      out.push({ color, cells: comboCells, pass });
+      out.push({ color, cells: comboCells, pass, touchesUnknown });
       count++;
     }
     return count;

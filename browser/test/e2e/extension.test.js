@@ -405,6 +405,38 @@ test('PAD solver: solve only, impossible goals and pages without a board', { tim
   assert.equal((await waitIdle()).mode, 'idle');
 });
 
+test('PAD solver reads hazard orbs and avoids them (REHA-18)', { timeout: TEST_TIMEOUT }, async () => {
+  // The owner's dawnGlare board (?s=unNHjo0, dawnGlare letters): 3 bombs, Poison x2, Mortal poison x1.
+  const sample = 'HRXHGLGJBJRGXRXGMDGPGRBLBLPLDB';
+  const { page, tabId } = await openPage(`pad.html?patt=${sample}`, 'pad-hazards');
+  const { result } = await apiOk({
+    type: 'qr:padSolve', tabId, settings: padSettings({ goals: [{ type: 'combos', count: 3 }], timeLimitMs: 3000 }), drag: true,
+  });
+  assert.equal(result.before, 'HRXHGL\nGJBJRG\nXRXGMD\nGPGRBL\nBLPLDB');
+  assert.equal(result.status, 'solved');
+  assert.deepEqual(result.goals, [{ label: '3+ combos', met: true }, { label: 'All 3 bombs matched', met: true }]);
+  assert.ok(result.combos.every((c) => c.color !== 'P' && c.color !== 'M'), JSON.stringify(result.combos));
+  assert.equal(result.combos.filter((c) => c.color === 'X').reduce((n, c) => n + c.size, 0), 3);
+  assert.equal(result.dragged, true);
+  assert.equal(await padText(page), result.afterDrag.replace(/\n/g, ''));
+
+  // A spinner is read as an unknown orb ("?"): the drag never moves it.
+  const spinner = `LLLSLL${PAD_DOC_BOARD.slice(6)}`;
+  const { page: spinPage, tabId: spinTab } = await openPage(`pad.html?patt=${spinner}`, 'pad-spinner');
+  const spun = await apiOk({ type: 'qr:padSolve', tabId: spinTab, settings: padSettings({ timeLimitMs: 3000 }), drag: true });
+  assert.equal(spun.result.before.split('\n')[0], 'LLL?LL');
+  assert.equal(spun.result.status, 'solved');
+  assert.ok(!spun.result.path.includes('r1c4'), spun.result.path.join(' '));
+  assert.equal((await padText(spinPage))[3], 'S');
+
+  // Two bombs: impossible, nothing dragged.
+  const { tabId: bombTab } = await openPage(`pad.html?patt=X${PAD_DOC_BOARD.slice(1, 29)}X`, 'pad-bombs');
+  const bombs = await apiOk({ type: 'qr:padSolve', tabId: bombTab, settings: padSettings(), drag: true });
+  assert.equal(bombs.result.status, 'impossible');
+  assert.deepEqual(bombs.result.reasons.slice(0, 1), ['Bomb: 2 bombs on the board, all bombs must be matched and a match needs 3']);
+  assert.equal(bombs.result.dragged, false);
+});
+
 test('PAD panel in the popup solves the active tab and shows the result', { timeout: TEST_TIMEOUT }, async () => {
   const { page } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-popup');
   await apiOk({ type: 'qr:padSaveSettings', settings: padSettings() });

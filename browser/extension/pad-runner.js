@@ -10,9 +10,13 @@
  */
 
 const PROTOCOL_VERSION = '1.3';
-/** dawnGlare `tilecolor` → solver orb letter. */
+/**
+ * dawnGlare `tilecolor` → solver orb letter. A spinner changes colour over time, so the solver
+ * treats it as an orb of unknown colour (`?`).
+ */
 const COLOR_LETTERS = {
   red: 'R', blue: 'B', green: 'G', light: 'L', dark: 'D', heart: 'H', jammer: 'J', poison: 'P', mortalpoison: 'M',
+  xbomb: 'X', spinner: '?',
 };
 /**
  * Max distance in CSS pixels between two mouse events of a drag: 2 events per straight move,

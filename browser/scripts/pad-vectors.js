@@ -42,6 +42,20 @@ const LIGHT7 = 'LLLLLL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG';
 const TEE_L = 'LLLRBG\nRLBGDH\nBGLDJP\nGDRJPM\nDHJMRB';
 const TEE_L_ONLY = 'LLLRBG\nHLHHHH\nHJLJPM\nRBGDJP\nDHHHMM';
 const TEE_L8 = 'LLLRBG\nHLHHLH\nHJLJLM\nRBGDLP\nDHHHMM';
+// Hazard orbs (REHA-18), the boards of test/unit/pad-hazards.test.js: one move makes the row of
+// Light and P P P (M M M); the old Row L path matched Poison (Mortal poison) in a cascade; 1, 2 and
+// 3 bombs; 3 bombs far apart with the row one move away; an unknown orb next to rows 1 and 2; the
+// owner's dawnGlare board (?s=unNHjo0: 3 bombs, P2, M1).
+const POISON_DIRECT = 'LLLPLL\nRBPLPG\nGDBHRB\nDHGRDH\nBRHGBD';
+const POISON_CASCADE = 'LBBBGP\nRPBGGL\nHLPHBH\nPDGLBP\nLPLRLP';
+const MORTAL_DIRECT = 'LLLMLL\nRBMLMG\nGDBHRB\nDHGRDH\nBRHGBD';
+const MORTAL_CASCADE = 'MBDBML\nRHMBBM\nMHLLML\nLDLBDM\nMGBDLL';
+const BOMB1 = 'LLLLLX\nRBGDHL\nGDHRBG\nDHRBGD\nHRBGDH';
+const BOMB2 = 'LLLLLX\nRBGDHX\nGDHRBG\nDHRBGD\nHRBGDL';
+const BOMB3 = 'LLLLLB\nXRGXDH\nGDXRBG\nDHRBGL\nHRBGDH';
+const BOMB_FAR = 'LLLRLL\nXBGLDH\nGDHRBG\nDHRBGD\nXRBGDX';
+const UNKNOWN_ROW = 'LLL?LL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG';
+const SAMPLE = 'HRXHGL\nGJBJRG\nXRXGMD\nGPGRBL\nBLPLDB';
 const FULL =Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
@@ -123,6 +137,23 @@ const cases = [
   ['tee l tshape any + blob any', TEE_L, [{ type: 'tshape', color: 'any' }, { type: 'blob', color: 'any', min: 3 }], single],
   ['tee l8 tshape L + blob any', TEE_L8, [{ type: 'tshape', color: 'L' }, { type: 'blob', color: 'ANY', min: 3 }], single],
   ['doc two blobs any one move', DOC, [{ type: 'blob', color: 'any', min: 3 }, { type: 'blob', color: 'any', min: 3 }], { ...single, maxMoves: 1 }],
+  // Hazard orbs (REHA-18): Poison / Mortal poison never matched (directly, by a cascade, with a
+  // combo-count goal), a Poison goal; 1 and 2 bombs, 3 bombs solved, unmet with one move; an
+  // unknown orb with and without diagonals and with a blob goal; the owner's board.
+  ['poison direct row L', POISON_DIRECT, [{ type: 'row', color: 'L' }], single],
+  ['poison cascade row L', POISON_CASCADE, [{ type: 'row', color: 'L' }], single],
+  ['poison cascade 5 combos', POISON_CASCADE, [{ type: 'combos', count: 5 }], single],
+  ['mortal direct row L', MORTAL_DIRECT, [{ type: 'row', color: 'L' }], single],
+  ['mortal cascade row L', MORTAL_CASCADE, [{ type: 'row', color: 'L' }], single],
+  ['poison row P impossible', POISON_DIRECT, [{ type: 'row', color: 'P' }], single],
+  ['bomb1 impossible', BOMB1, [{ type: 'row', color: 'L' }], single],
+  ['bomb2 impossible', BOMB2, [{ type: 'row', color: 'L' }], single],
+  ['bomb3 row L', BOMB3, [{ type: 'row', color: 'L' }], single],
+  ['bomb far row L one move unmet', BOMB_FAR, [{ type: 'row', color: 'L' }], { ...single, maxMoves: 1 }],
+  ['unknown row L', UNKNOWN_ROW, [{ type: 'row', color: 'L' }], single],
+  ['unknown row L no diagonals', UNKNOWN_ROW, [{ type: 'row', color: 'L' }], { ...single, diagonals: false }],
+  ['unknown blob 4+ R', UNKNOWN_ROW, [{ type: 'blob', color: 'R', min: 4 }], single],
+  ['sample 3 combos', SAMPLE, [{ type: 'combos', count: 3 }], single],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {

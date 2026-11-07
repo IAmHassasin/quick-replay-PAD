@@ -48,7 +48,7 @@ test('parses and formats boards', () => {
   assert.deepEqual(countOrbs(board.cells).slice(0, 6), [8, 7, 3, 7, 3, 2]);
   assert.deepEqual(countOrbs(parseBoard(SCREENSHOT_BOARD).cells).slice(0, 6), [2, 5, 8, 5, 2, 8]);
   assert.equal(formatBoard(parseBoard('RRRBBB GGGLLL DDDHHH RBGLDH JPMRBG', { rows: 5, cols: 6 })).split('\n')[4], 'JPMRBG');
-  assert.throws(() => parseBoard('RRX\nBBB\nGGG'), /Unknown orb letter "X"/);
+  assert.throws(() => parseBoard('RRZ\nBBB\nGGG'), /Unknown orb letter "Z"/);
   assert.throws(() => parseBoard('RRR\nBB\nGGG'), /same length/);
   assert.throws(() => parseBoard('RRRBBB', { rows: 3, cols: 3 }), /Expected 9 orbs/);
 });
@@ -67,7 +67,7 @@ RGBGB
 RBGBG`);
   // Row of 3 R and column of 3 R share r1c1: one combo of 5.
   assert.equal(combos.length, 1);
-  assert.deepEqual(combos[0], { color: 0, cells: [0, 1, 2, 5, 10], pass: 0 });
+  assert.deepEqual(combos[0], { color: 0, cells: [0, 1, 2, 5, 10], pass: 0, touchesUnknown: false });
 });
 
 test('separate matches of one colour that do not touch are separate combos', () => {
