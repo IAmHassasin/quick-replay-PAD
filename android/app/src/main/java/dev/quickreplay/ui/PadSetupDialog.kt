@@ -22,7 +22,12 @@ internal object PadSetupDialog {
     private val TYPES = Shapes.TYPES + "combos" + "blob" + "colors"
     private val TYPE_LABELS =
         Shapes.TYPES.map { Shapes.LABELS.getValue(it) } + "Combos (at least)" + "Connected orbs (at least)" + "Colours (at least)"
-    private val COLOR_LABELS = Orbs.NAMES.take(Orbs.ATTRIBUTES)
+    /** R, B, G, L, D, H, then "Any" (the solver picks the colour) at index [Orbs.ATTRIBUTES]. */
+    private val COLOR_LABELS = Orbs.NAMES.take(Orbs.ATTRIBUTES) + "Any"
+
+    private fun colorPosition(color: Int): Int = if (color == Orbs.ANY) Orbs.ATTRIBUTES else color.coerceIn(0, Orbs.ATTRIBUTES - 1)
+
+    private fun colorAt(position: Int): Int = if (position == Orbs.ATTRIBUTES) Orbs.ANY else position
 
     fun show(activity: Activity, title: String, initial: PadSetup, onSave: (PadSetup) -> Unit) {
         val form = LinearLayout(activity).apply {
@@ -108,7 +113,7 @@ internal object PadSetupDialog {
                 is Goal.Blob -> goal.color
                 is Goal.Combos, is Goal.Colors -> Orbs.code('L')
             }
-            setSelection(initialColor.coerceIn(0, Orbs.ATTRIBUTES - 1))
+            setSelection(colorPosition(initialColor))
         }
         // The number field is the combo count, the minimum size of a blob goal or the colour count.
         val initialNumber = when (goal) {
@@ -176,13 +181,13 @@ internal object PadSetupDialog {
             "blob" -> {
                 val min = row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Connected orbs must be a number")
                 val max = if (row.exact.isChecked) min else row.blobMax?.takeIf { it >= min }
-                Goal.Blob(row.color.selectedItemPosition, min, max)
+                Goal.Blob(colorAt(row.color.selectedItemPosition), min, max)
             }
             "colors" -> Goal.Colors(
                 row.count.text.toString().toIntOrNull() ?: throw IllegalArgumentException("Colour count must be a number"),
                 row.colorSet,
             )
-            else -> Goal.Shape(kind, row.color.selectedItemPosition)
+            else -> Goal.Shape(kind, colorAt(row.color.selectedItemPosition))
         }
     }
 }

@@ -25,6 +25,20 @@ export const BLOB_MIN = 3;
 export const COLORS_SET_MAX = 6;
 export const COLORS_DEFAULT_OF = Object.freeze([0, 1, 2, 3, 4]);
 
+/**
+ * Colour of a shape or blob goal whose colour the solver picks ("any" in JSON, any letter case).
+ * It becomes one of {@link ANY_COLORS}; the Any goals of one list get pairwise different colours,
+ * and an Any goal may take the colour of a goal with a fixed colour.
+ */
+export const ANY_COLOR = -1;
+/** Colours an Any goal may become: the 5 attributes R, B, G, L, D (not Heart). */
+export const ANY_COLORS = Object.freeze([0, 1, 2, 3, 4]);
+/**
+ * At most this many colour assignments of the Any goals are searched, best stocked first; the
+ * time limit is shared between them.
+ */
+export const ANY_ASSIGNMENT_LIMIT = 6;
+
 export const DEFAULT_OPTIONS = Object.freeze({
   diagonals: true,
   maxMoves: 40,
@@ -67,8 +81,10 @@ export function normalizeGoals(goals, size) {
       return { type: 'combos', count: goal.count };
     }
     if (goal.type === 'colors') return normalizeColorsGoal(goal, where);
-    const color = typeof goal.color === 'number' ? goal.color : orbCode(goal.color ?? '');
-    if (!Number.isInteger(color) || color < 0 || color >= ORB_COUNT) throw new Error(`${where}: unknown colour "${goal.color}"`);
+    const color = goalColor(goal.color);
+    if (color !== ANY_COLOR && (!Number.isInteger(color) || color < 0 || color >= ORB_COUNT)) {
+      throw new Error(`${where}: unknown colour "${goal.color}"`);
+    }
     if (goal.type === 'blob') {
       if (!Number.isInteger(goal.min) || goal.min < BLOB_MIN) throw new Error(`${where}: blob size must be an integer >= ${BLOB_MIN}`);
       const max = size ? size.rows * size.cols : MAX_SIZE * MAX_SIZE;
@@ -84,6 +100,15 @@ export function normalizeGoals(goals, size) {
     }
     return { type: goal.type, color };
   });
+}
+
+/** Orb code of a goal colour: a letter, an orb code, or "any" (any letter case) / {@link ANY_COLOR}. */
+function goalColor(value) {
+  if (value === ANY_COLOR || (typeof value === 'string' && value.toLowerCase() === 'any')) return ANY_COLOR;
+  if (typeof value === 'number') return value;
+  // orbCode() returns -1 for an unknown letter, which must not read as ANY_COLOR.
+  const code = orbCode(value ?? '');
+  return code < 0 ? NaN : code;
 }
 
 /**
@@ -130,16 +155,18 @@ export function goalLabel(goal) {
     const names = ORB_NAMES.slice(0, COLORS_SET_MAX).filter((_, color) => mask & (1 << color));
     return `${goal.count}+ colours of ${names.join(', ')}`;
   }
+  const name = goal.color === ANY_COLOR ? 'any colour' : ORB_NAMES[goal.color];
   if (goal.type === 'blob') {
-    if (goal.max === undefined) return `${goal.min}+ ${ORB_NAMES[goal.color]} connected`;
-    if (goal.max === goal.min) return `exactly ${goal.min} ${ORB_NAMES[goal.color]}`;
-    return `${goal.min}-${goal.max} ${ORB_NAMES[goal.color]} connected`;
+    if (goal.max === undefined) return `${goal.min}+ ${name} connected`;
+    if (goal.max === goal.min) return `exactly ${goal.min} ${name}`;
+    return `${goal.min}-${goal.max} ${name} connected`;
   }
-  return `${SHAPE_LABELS[goal.type]} of ${ORB_NAMES[goal.color]}`;
+  return `${SHAPE_LABELS[goal.type]} of ${name}`;
 }
 
 /**
- * Checks orb counts and board size. A goal list can still be unsolvable when this passes.
+ * Checks orb counts and board size. A goal list can still be unsolvable when this passes. Any
+ * goals are only checked for size here (their colour is not chosen yet; see {@link solve}).
  * @returns {string[]} Reasons the goals are impossible (empty when they may be possible).
  */
 export function checkFeasibility(board, goals) {
@@ -169,13 +196,14 @@ export function checkFeasibility(board, goals) {
     if (goal.type === 'blob') {
       // A plain sum: a blob shares orbs with another goal of its colour only when it is that
       // goal's combo, which the goal list does not promise.
-      need[goal.color] += goal.min;
+      if (goal.color !== ANY_COLOR) need[goal.color] += goal.min;
       continue;
     }
     if (!shapeFits(goal.type, rows, cols)) {
       reasons.push(`${goalLabel(goal)}: does not fit on a ${cols}x${rows} board`);
       continue;
     }
+    if (goal.color === ANY_COLOR) continue;
     need[goal.color] += shapeSize(goal.type, rows, cols);
     if (goal.type === 'row') rowGoals[goal.color]++;
     if (goal.type === 'column') columnGoals[goal.color]++;
@@ -193,6 +221,13 @@ export function checkFeasibility(board, goals) {
 
 /**
  * Solves a board.
+ *
+ * Any goals: the colour assignments (pairwise different colours of {@link ANY_COLORS}, in goal
+ * order) for which the orb counts are enough are ranked by the orbs of the colours (more first,
+ * goal by goal; ties in colour order), and the first {@link ANY_ASSIGNMENT_LIMIT} are searched one
+ * after another. Each gets an equal share of the time left, so time an assignment does not use
+ * goes to the next ones. The best result wins: solved before partial, then more goals met, then
+ * fewer moves; a tie keeps the earlier (better stocked) assignment.
  * @param {{rows: number, cols: number, cells: Uint8Array}} board
  * @param {Array<{type: string, color?: string | number, count?: number}>} goals Empty: maximise combos.
  * @param {Partial<typeof DEFAULT_OPTIONS> & {now?: () => number}} [options]
@@ -201,13 +236,15 @@ export function checkFeasibility(board, goals) {
  *   reasons: string[],
  *   path: number[],
  *   moves: number,
- *   goals: Array<{label: string, met: boolean}>,
+ *   goals: Array<{label: string, met: boolean, anyColor?: string}>,
  *   combos: Array<{color: string, size: number, pass: number, shapes: string[]}>,
  *   afterDrag: Uint8Array | null,
  *   afterMatch: Uint8Array | null,
- *   stats: {depth: number, evaluated: number, rounds: number, beamWidth: number, ms: number, timedOut: boolean},
- * }} `stats.depth` is the deepest depth explored by any round, `stats.beamWidth` the width of
- *   the last round started (not necessarily the one that found the path).
+ *   stats: {depth: number, evaluated: number, rounds: number, beamWidth: number, ms: number, timedOut: boolean, assignments: number},
+ * }} `goals[].anyColor` is the letter an Any goal became (its label then names that colour and
+ *   ends with "(any colour)"). `stats.depth` is the deepest depth explored by any round,
+ *   `stats.beamWidth` the width of the last round started (not necessarily the one that found the
+ *   path); `stats.assignments` the number of Any colour assignments searched (1 without Any goals).
  */
 export function solve(board, goals, options = {}) {
   const { rows, cols, cells } = board;
@@ -222,8 +259,17 @@ export function solve(board, goals, options = {}) {
   const started = now();
   const units = normalizeGoals(goals, { rows, cols });
   const goalLabels = units.map(goalLabel);
+  const anyIndices = units.flatMap((unit, i) => (unit.color === ANY_COLOR ? [i] : []));
 
-  const reasons = checkFeasibility(board, units);
+  let reasons = checkFeasibility(board, units);
+  let assignments = [[]];
+  if (!reasons.length && anyIndices.length) {
+    assignments = anyAssignments(board, units, anyIndices);
+    if (!assignments.length) {
+      const labels = anyIndices.map((i) => `"${goalLabels[i]}"`).join(', ');
+      reasons = [`Any colour: no assignment of distinct colours has enough orbs for ${labels}`];
+    }
+  }
   if (reasons.length) {
     return {
       status: 'impossible',
@@ -234,10 +280,113 @@ export function solve(board, goals, options = {}) {
       combos: [],
       afterDrag: null,
       afterMatch: null,
-      stats: { depth: 0, evaluated: 0, rounds: 0, beamWidth: 0, ms: Math.round(now() - started), timedOut: false },
+      stats: { depth: 0, evaluated: 0, rounds: 0, beamWidth: 0, ms: Math.round(now() - started), timedOut: false, assignments: 0 },
     };
   }
 
+  const deadline = started + opts.timeLimitMs;
+  let best = null;
+  let evaluated = 0;
+  let rounds = 0;
+  let depth = 0;
+  let timedOut = false;
+  assignments.forEach((assignment, k) => {
+    const resolved = resolveAny(units, anyIndices, assignment);
+    // The last assignment (the only one without Any goals) ends exactly at the time limit.
+    const sliceStart = now();
+    const left = assignments.length - k;
+    const sliceEnd = left === 1 ? deadline : sliceStart + Math.trunc((deadline - sliceStart) / left);
+    const found = searchGoals(board, resolved, opts, () => now() > sliceEnd);
+    evaluated += found.evaluated;
+    rounds += found.rounds;
+    depth = Math.max(depth, found.depth);
+    timedOut ||= found.timedOut;
+    if (!best || betterResult(found, best)) best = { ...found, resolved };
+  });
+
+  const { resolved, path, metFlags, sim } = best;
+  return {
+    status: metFlags.every(Boolean) ? 'solved' : 'partial',
+    reasons: [],
+    path,
+    moves: Math.max(0, path.length - 1),
+    goals: resolved.map((unit, i) => (units[i].color === ANY_COLOR
+      ? { label: `${goalLabel(unit)} (any colour)`, met: metFlags[i], anyColor: ORB_LETTERS[unit.color] }
+      : { label: goalLabels[i], met: metFlags[i] })),
+    combos: sim.combos.map((combo) => ({
+      color: ORB_LETTERS[combo.color],
+      size: combo.cells.length,
+      pass: combo.pass,
+      shapes: SHAPE_TYPES.filter((type) => comboHasShape(type, combo.cells, rows, cols)),
+    })),
+    afterDrag: best.afterDrag,
+    afterMatch: sim.cells.slice(),
+    stats: {
+      depth, evaluated, rounds, beamWidth: best.beamWidth, ms: Math.round(now() - started), timedOut, assignments: assignments.length,
+    },
+  };
+}
+
+/**
+ * Colour assignments of the Any goals (one colour per entry of `anyIndices`, pairwise different)
+ * for which {@link checkFeasibility} passes, best stocked first, at most {@link ANY_ASSIGNMENT_LIMIT}.
+ * Identical Any goals get their colours in colour order (swapping them would be the same search).
+ * Same order as the Kotlin port: generated in colour order, then stably sorted.
+ */
+function anyAssignments(board, units, anyIndices) {
+  const counts = countOrbs(board.cells);
+  const keys = anyIndices.map((i) => JSON.stringify(units[i]));
+  const found = [];
+  const current = [];
+  const pick = () => {
+    const k = current.length;
+    if (k === anyIndices.length) {
+      if (!checkFeasibility(board, resolveAny(units, anyIndices, current)).length) found.push([...current]);
+      return;
+    }
+    // Two identical Any goals swapped are the same problem: keep their colours in colour order.
+    const floor = Math.max(-1, ...current.filter((_, j) => keys[j] === keys[k]));
+    for (const color of ANY_COLORS) {
+      if (current.includes(color) || color < floor) continue;
+      current.push(color);
+      pick();
+      current.pop();
+    }
+  };
+  pick();
+  found.sort((a, b) => {
+    for (let k = 0; k < a.length; k++) if (counts[a[k]] !== counts[b[k]]) return counts[b[k]] - counts[a[k]];
+    return 0;
+  });
+  return found.slice(0, ANY_ASSIGNMENT_LIMIT);
+}
+
+/** The goals with the colours of an assignment in place of Any. */
+function resolveAny(units, anyIndices, assignment) {
+  const resolved = units.slice();
+  anyIndices.forEach((index, k) => {
+    resolved[index] = { ...units[index], color: assignment[k] };
+  });
+  return resolved;
+}
+
+/** Ranking of the results of two Any assignments: solved, then more goals met, then fewer moves. */
+function betterResult(a, b) {
+  const solvedA = a.metFlags.every(Boolean);
+  const solvedB = b.metFlags.every(Boolean);
+  if (solvedA !== solvedB) return solvedA;
+  const metA = a.metFlags.filter(Boolean).length;
+  const metB = b.metFlags.filter(Boolean).length;
+  if (metA !== metB) return metA > metB;
+  return a.path.length < b.path.length;
+}
+
+/**
+ * Beam search for goals without Any colours.
+ * @param {() => boolean} timeUp True once the search must stop.
+ */
+function searchGoals(board, units, opts, timeUp) {
+  const { rows, cols, cells } = board;
   const search = {
     // Private copy: the search swaps orbs in place while scoring.
     cells: cells.slice(),
@@ -245,7 +394,7 @@ export function solve(board, goals, options = {}) {
     evaluator: new Evaluator(rows, cols, units, opts.diagonals),
     neighbours: buildNeighbours(rows, cols, opts.diagonals),
     zobrist: new Zobrist(rows * cols),
-    timeUp: () => now() - started > opts.timeLimitMs,
+    timeUp,
   };
 
   // Anytime search: each round is 4x wider than the previous one; once a path is found, later
@@ -281,26 +430,11 @@ export function solve(board, goals, options = {}) {
     width = Math.min(width * 4, opts.maxBeamWidth);
   }
 
-  const evaluator = search.evaluator;
   const path = best ? pathOf(best) : [];
   const afterDrag = applyPath(cells, path);
-  const sim = evaluator.matcher.simulate(afterDrag);
-  const metFlags = evaluator.goalsMet(sim.combos);
+  const sim = search.evaluator.matcher.simulate(afterDrag);
   return {
-    status: metFlags.every(Boolean) ? 'solved' : 'partial',
-    reasons: [],
-    path,
-    moves: Math.max(0, path.length - 1),
-    goals: goalLabels.map((label, i) => ({ label, met: metFlags[i] })),
-    combos: sim.combos.map((combo) => ({
-      color: ORB_LETTERS[combo.color],
-      size: combo.cells.length,
-      pass: combo.pass,
-      shapes: SHAPE_TYPES.filter((type) => comboHasShape(type, combo.cells, rows, cols)),
-    })),
-    afterDrag,
-    afterMatch: sim.cells.slice(),
-    stats: { depth, evaluated, rounds, beamWidth: width, ms: Math.round(now() - started), timedOut },
+    path, afterDrag, sim, metFlags: search.evaluator.goalsMet(sim.combos), evaluated, rounds, depth, beamWidth: width, timedOut,
   };
 }
 

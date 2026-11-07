@@ -10,13 +10,14 @@ sealed interface Goal {
     val type: String
     val label: String
 
+    /** A shape of one colour; [color] may be [Orbs.ANY]. */
     data class Shape(override val type: String, val color: Int) : Goal {
         init {
             require(type in Shapes.TYPES) { "Unknown goal type \"$type\"" }
-            require(color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
+            require(color == Orbs.ANY || color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
         }
 
-        override val label: String get() = "${Shapes.LABELS.getValue(type)} of ${Orbs.NAMES[color]}"
+        override val label: String get() = "${Shapes.LABELS.getValue(type)} of ${Orbs.goalName(color)}"
     }
 
     data class Combos(val count: Int) : Goal {
@@ -32,10 +33,11 @@ sealed interface Goal {
      * One combo of [color] with at least [min] and at most [max] connected orbs ([max] null: no
      * upper bound; [max] == [min]: exactly that many); a repeated goal needs another combo. [min]
      * and [max] are at most the largest board here; [PadSetup] and [Solver.solve] check the real board.
+     * [color] may be [Orbs.ANY].
      */
     data class Blob(val color: Int, val min: Int, val max: Int? = null) : Goal {
         init {
-            require(color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
+            require(color == Orbs.ANY || color in 0 until Orbs.COUNT) { "Unknown colour code $color" }
             require(min >= MIN) { "Blob size must be >= $MIN" }
             require(min <= Board.MAX_SIZE * Board.MAX_SIZE) { "Blob size must be at most ${Board.MAX_SIZE * Board.MAX_SIZE}" }
             if (max != null) {
@@ -47,9 +49,9 @@ sealed interface Goal {
         override val type: String get() = "blob"
         override val label: String
             get() = when (max) {
-                null -> "$min+ ${Orbs.NAMES[color]} connected"
-                min -> "exactly $min ${Orbs.NAMES[color]}"
-                else -> "$min-$max ${Orbs.NAMES[color]} connected"
+                null -> "$min+ ${Orbs.goalName(color)} connected"
+                min -> "exactly $min ${Orbs.goalName(color)}"
+                else -> "$min-$max ${Orbs.goalName(color)} connected"
             }
 
         /** True when a combo of [size] orbs (of the colour) meets this goal. */
@@ -115,7 +117,11 @@ data class SolveOptions(
     }
 }
 
-data class GoalResult(val label: String, val met: Boolean)
+/**
+ * [anyColor] is the letter an Any goal became (its [label] then names that colour and ends with
+ * "(any colour)"); null for other goals and for impossible results.
+ */
+data class GoalResult(val label: String, val met: Boolean, val anyColor: Char? = null)
 
 data class ComboInfo(val color: Char, val size: Int, val pass: Int, val shapes: List<String>)
 
@@ -128,6 +134,8 @@ data class SolveStats(
     val beamWidth: Int,
     val ms: Long,
     val timedOut: Boolean,
+    /** Number of Any colour assignments searched (1 without Any goals, 0 when impossible). */
+    val assignments: Int = 1,
 )
 
 data class SolveResult(
@@ -181,7 +189,8 @@ object Solver {
                     if (goal.count > max) reasons += "${goal.label}: at most $max combos are possible on this board"
                 }
                 // A plain sum, like solver.js: a blob shares orbs with another goal only as its combo.
-                is Goal.Blob -> need[goal.color] += goal.min
+                // Any goals are only checked for size here: their colour is chosen in solve().
+                is Goal.Blob -> if (goal.color != Orbs.ANY) need[goal.color] += goal.min
                 // Each counted colour needs one combo of 3+ orbs; checked on its own, like Combos.
                 is Goal.Colors -> {
                     val mask = goal.mask
@@ -197,6 +206,7 @@ object Solver {
                         reasons += "${goal.label}: does not fit on a ${board.cols}x${board.rows} board"
                         continue
                     }
+                    if (goal.color == Orbs.ANY) continue
                     need[goal.color] += Shapes.size(goal.type, board.rows, board.cols)
                     if (goal.type == "row") rowGoals[goal.color]++
                     if (goal.type == "column") columnGoals[goal.color]++
@@ -213,6 +223,12 @@ object Solver {
         return reasons
     }
 
+    /**
+     * Solves a board. Any goals: like solver.js, the feasible colour assignments are ranked by the
+     * orbs of their colours and the first [ANY_ASSIGNMENT_LIMIT] are searched, each with an equal
+     * share of the time left; the best result wins (solved, more goals met, fewer moves; a tie keeps
+     * the better stocked assignment).
+     */
     fun solve(
         board: Board,
         goals: List<Goal>,
@@ -224,13 +240,158 @@ object Solver {
         // Like normalizeGoals(goals, size) in JS: a blob larger than the board is an invalid goal.
         for (goal in goals) if (goal is Goal.Blob) goal.checkSize(board.rows, board.cols)
         val labels = goals.map { it.label }
-        val reasons = checkFeasibility(board, goals)
+        val anyIndices = goals.indices.filter { colorOf(goals[it]) == Orbs.ANY }
+        var reasons = checkFeasibility(board, goals)
+        var assignments = listOf(emptyList<Int>())
+        if (reasons.isEmpty() && anyIndices.isNotEmpty()) {
+            assignments = anyAssignments(board, goals, anyIndices)
+            if (assignments.isEmpty()) {
+                val names = anyIndices.joinToString(", ") { "\"${labels[it]}\"" }
+                reasons = listOf("Any colour: no assignment of distinct colours has enough orbs for $names")
+            }
+        }
         if (reasons.isNotEmpty()) {
             return SolveResult(
                 "impossible", reasons, emptyList(), labels.map { GoalResult(it, false) }, emptyList(), null,
-                SolveStats(0, 0, 0, 0, now() - started, false),
+                SolveStats(0, 0, 0, 0, now() - started, false, 0),
             )
         }
+
+        val deadline = started + options.timeLimitMs
+        var best: Found? = null
+        var bestGoals: List<Goal> = goals
+        var evaluated = 0L
+        var rounds = 0
+        var depth = 0
+        var timedOut = false
+        assignments.forEachIndexed { k, assignment ->
+            val resolved = resolveAny(goals, anyIndices, assignment)
+            // The last assignment (the only one without Any goals) ends exactly at the time limit.
+            val sliceStart = now()
+            val left = assignments.size - k
+            val sliceEnd = if (left == 1) deadline else sliceStart + (deadline - sliceStart) / left
+            val found = searchGoals(board, resolved, options) { now() > sliceEnd }
+            evaluated += found.evaluated
+            rounds += found.rounds
+            depth = maxOf(depth, found.depth)
+            timedOut = timedOut || found.timedOut
+            if (best.let { it == null || betterResult(found, it) }) {
+                best = found
+                bestGoals = resolved
+            }
+        }
+
+        val result = best!!
+        return SolveResult(
+            status = if (result.met.all { it }) "solved" else "partial",
+            reasons = emptyList(),
+            path = result.path,
+            goals = bestGoals.mapIndexed { i, goal ->
+                if (i in anyIndices) {
+                    GoalResult("${goal.label} (any colour)", result.met[i], Orbs.LETTERS[colorOf(goal)!!])
+                } else {
+                    GoalResult(labels[i], result.met[i])
+                }
+            },
+            combos = result.combos.map { combo ->
+                ComboInfo(
+                    Orbs.LETTERS[combo.color], combo.cells.size, combo.pass,
+                    Shapes.TYPES.filter { Shapes.has(it, combo.cells, board.rows, board.cols) },
+                )
+            },
+            afterDrag = result.afterDrag,
+            stats = SolveStats(depth, evaluated, rounds, result.beamWidth, now() - started, timedOut, assignments.size),
+        )
+    }
+
+    /** At most this many colour assignments of the Any goals are searched (same as solver.js). */
+    const val ANY_ASSIGNMENT_LIMIT = 6
+
+    private fun colorOf(goal: Goal): Int? = when (goal) {
+        is Goal.Shape -> goal.color
+        is Goal.Blob -> goal.color
+        is Goal.Combos, is Goal.Colors -> null
+    }
+
+    /** [goal] with [color] in place of its colour (Shape and Blob goals only). */
+    private fun withColor(goal: Goal, color: Int): Goal = when (goal) {
+        is Goal.Shape -> goal.copy(color = color)
+        is Goal.Blob -> goal.copy(color = color)
+        is Goal.Combos, is Goal.Colors -> goal
+    }
+
+    private fun resolveAny(goals: List<Goal>, anyIndices: List<Int>, assignment: List<Int>): List<Goal> {
+        if (assignment.isEmpty()) return goals
+        val resolved = goals.toMutableList()
+        anyIndices.forEachIndexed { k, index -> resolved[index] = withColor(goals[index], assignment[k]) }
+        return resolved
+    }
+
+    /**
+     * Feasible colour assignments of the Any goals (pairwise different colours of [Orbs.ANY_COLORS]),
+     * best stocked first, at most [ANY_ASSIGNMENT_LIMIT]; identical Any goals get their colours in
+     * colour order. Same order as `anyAssignments()` in solver.js: generated in colour order, then
+     * stably sorted.
+     */
+    private fun anyAssignments(board: Board, goals: List<Goal>, anyIndices: List<Int>): List<List<Int>> {
+        val counts = countOrbs(board.cells)
+        val anyGoals = anyIndices.map { goals[it] }
+        val found = ArrayList<List<Int>>()
+        val current = ArrayList<Int>()
+        fun pick() {
+            val k = current.size
+            if (k == anyIndices.size) {
+                if (checkFeasibility(board, resolveAny(goals, anyIndices, current)).isEmpty()) found += current.toList()
+                return
+            }
+            // Two identical Any goals swapped are the same problem: keep their colours in colour order.
+            val floor = current.indices.filter { anyGoals[it] == anyGoals[k] }.maxOfOrNull { current[it] } ?: -1
+            for (color in Orbs.ANY_COLORS) {
+                if (color in current || color < floor) continue
+                current += color
+                pick()
+                current.removeAt(current.size - 1)
+            }
+        }
+        pick()
+        val sorted = found.sortedWith { a, b ->
+            var order = 0
+            for (k in a.indices) {
+                if (counts[a[k]] != counts[b[k]]) {
+                    order = counts[b[k]] - counts[a[k]]
+                    break
+                }
+            }
+            order
+        }
+        return sorted.take(ANY_ASSIGNMENT_LIMIT)
+    }
+
+    /** Result of one search (goals without Any colours). */
+    private class Found(
+        val path: List<Int>,
+        val afterDrag: IntArray,
+        val combos: List<Combo>,
+        val met: List<Boolean>,
+        val evaluated: Long,
+        val rounds: Int,
+        val depth: Int,
+        val beamWidth: Int,
+        val timedOut: Boolean,
+    )
+
+    /** Same ranking as `betterResult()` in solver.js: solved, then more goals met, then fewer moves. */
+    private fun betterResult(a: Found, b: Found): Boolean {
+        val solvedA = a.met.all { it }
+        val solvedB = b.met.all { it }
+        if (solvedA != solvedB) return solvedA
+        val metA = a.met.count { it }
+        val metB = b.met.count { it }
+        if (metA != metB) return metA > metB
+        return a.path.size < b.path.size
+    }
+
+    private fun searchGoals(board: Board, goals: List<Goal>, options: SolveOptions, timeUp: () -> Boolean): Found {
         val search = Search(
             // Private copy: the search swaps orbs in place while scoring.
             cells = board.cells.copyOf(),
@@ -238,7 +399,7 @@ object Solver {
             evaluator = Evaluator(board.rows, board.cols, goals, options.diagonals),
             neighbours = buildNeighbours(board.rows, board.cols, options.diagonals),
             zobrist = Zobrist(board.rows * board.cols),
-            timeUp = { now() - started > options.timeLimitMs },
+            timeUp = timeUp,
         )
 
         var best: Node? = null
@@ -273,21 +434,7 @@ object Solver {
         val path = best?.let(::pathOf).orEmpty()
         val afterDrag = applyPath(board.cells, path)
         val sim = search.evaluator.matcher.simulate(afterDrag)
-        val met = search.evaluator.goalsMet(sim.combos)
-        return SolveResult(
-            status = if (met.all { it }) "solved" else "partial",
-            reasons = emptyList(),
-            path = path,
-            goals = labels.mapIndexed { i, label -> GoalResult(label, met[i]) },
-            combos = sim.combos.map { combo ->
-                ComboInfo(
-                    Orbs.LETTERS[combo.color], combo.cells.size, combo.pass,
-                    Shapes.TYPES.filter { Shapes.has(it, combo.cells, board.rows, board.cols) },
-                )
-            },
-            afterDrag = afterDrag,
-            stats = SolveStats(depth, evaluated, rounds, width, now() - started, timedOut),
-        )
+        return Found(path, afterDrag, sim.combos, search.evaluator.goalsMet(sim.combos), evaluated, rounds, depth, width, timedOut)
     }
 
     private class Node(

@@ -1867,6 +1867,292 @@
         "afterDrag": "LGHLBB\nLRDDGL\nBRRRRL\nHBRGBL\nLBBRRD",
         "rounds": 1
       }
+    },
+    {
+      "name": "light4 tshape L impossible",
+      "board": "LRBGDH\nRBGDHR\nLBGDHB\nRGLDHG\nBRDLHR",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Light: the goals need 5 orbs, the board has 4"
+        ],
+        "path": [],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "light5 fire2 tshape L + blob 3+ R impossible",
+      "board": "LLLLLB\nRGDHBG\nDBGHDB\nRGDHBG\nDBGHDB",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "L"
+        },
+        {
+          "type": "blob",
+          "color": "R",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Fire: the goals need 3 orbs, the board has 2"
+        ],
+        "path": [],
+        "goalsMet": [
+          false,
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "light7 tshape L + blob 3+ L impossible",
+      "board": "LLLLLL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "L"
+        },
+        {
+          "type": "blob",
+          "color": "L",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Light: the goals need 8 orbs, the board has 7"
+        ],
+        "path": [],
+        "goalsMet": [
+          false,
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0
+      }
+    },
+    {
+      "name": "tee l tshape any",
+      "board": "LLLRBG\nRLBGDH\nBGLDJP\nGDRJPM\nDHJMRB",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "any"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          13,
+          14
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "LLLRBG\nRLBGDH\nBLGDJP\nGDRJPM\nDHJMRB",
+        "rounds": 1,
+        "labels": [
+          "T shape of Light (any colour)"
+        ],
+        "assignments": 1
+      }
+    },
+    {
+      "name": "tee l only tshape any + blob any impossible",
+      "board": "LLLRBG\nHLHHHH\nHJLJPM\nRBGDJP\nDHHHMM",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "any"
+        },
+        {
+          "type": "blob",
+          "color": "any",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "impossible",
+        "reasons": [
+          "Any colour: no assignment of distinct colours has enough orbs for \"T shape of any colour\", \"3+ any colour connected\""
+        ],
+        "path": [],
+        "goalsMet": [
+          false,
+          false
+        ],
+        "combos": 0,
+        "afterDrag": null,
+        "rounds": 0,
+        "labels": [
+          "T shape of any colour",
+          "3+ any colour connected"
+        ],
+        "assignments": 0
+      }
+    },
+    {
+      "name": "tee l tshape any + blob any",
+      "board": "LLLRBG\nRLBGDH\nBGLDJP\nGDRJPM\nDHJMRB",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "any"
+        },
+        {
+          "type": "blob",
+          "color": "any",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          6,
+          13,
+          14,
+          21,
+          28,
+          22
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LLLRBG\nGLBGDH\nBLJDJP\nGDRRRM\nDHJMPB",
+        "rounds": 4,
+        "labels": [
+          "T shape of Light (any colour)",
+          "3+ Fire connected (any colour)"
+        ],
+        "assignments": 4
+      }
+    },
+    {
+      "name": "tee l8 tshape L + blob any",
+      "board": "LLLRBG\nHLHHLH\nHJLJLM\nRBGDLP\nDHHHMM",
+      "goals": [
+        {
+          "type": "tshape",
+          "color": "L"
+        },
+        {
+          "type": "blob",
+          "color": "ANY",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          13,
+          14
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 3,
+        "afterDrag": "LLLRBG\nHLHHLH\nHLJJLM\nRBGDLP\nDHHHMM",
+        "rounds": 1,
+        "labels": [
+          "T shape of Light",
+          "3+ Light connected (any colour)"
+        ],
+        "assignments": 1
+      }
+    },
+    {
+      "name": "doc two blobs any one move",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "blob",
+          "color": "any",
+          "min": 3
+        },
+        {
+          "type": "blob",
+          "color": "any",
+          "min": 3
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          7,
+          12
+        ],
+        "goalsMet": [
+          true,
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LGHLBB\nLBDDGL\nRRRLRR\nHBRGBL\nLBBRRD",
+        "rounds": 6,
+        "labels": [
+          "3+ Fire connected (any colour)",
+          "3+ Water connected (any colour)"
+        ],
+        "assignments": 6
+      }
     }
   ]
 }

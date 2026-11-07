@@ -35,7 +35,7 @@ data class PadSetup(
                 is Goal.Blob -> goal.color
                 is Goal.Combos, is Goal.Colors -> continue
             }
-            require(color < Orbs.ATTRIBUTES) { "Goal colour must be R, B, G, L, D or H" }
+            require(color == Orbs.ANY || color in 0 until Orbs.ATTRIBUTES) { "Goal colour must be R, B, G, L, D, H or any" }
             if (goal is Goal.Blob) goal.checkSize(rows, cols)
         }
     }
@@ -65,6 +65,9 @@ data class PadSetup(
         const val MIN_MS_PER_MOVE = 10L
         // 50 moves x 1000 ms stays below GestureDescription.getMaxGestureDuration() (60 s).
         const val MAX_MS_PER_MOVE = 1000L
+
+        /** Parsed colour of an invalid value (not [Orbs.ANY], which is -1). */
+        private const val NOT_A_COLOR = -2
 
         /** Parses the `pad` object of a script. Throws [IllegalArgumentException] with a readable message. */
         fun fromJson(json: JSONObject): PadSetup {
@@ -112,8 +115,8 @@ data class PadSetup(
 
         fun goalJson(goal: Goal): JSONObject = when (goal) {
             is Goal.Combos -> JSONObject().put("type", "combos").put("count", goal.count)
-            is Goal.Shape -> JSONObject().put("type", goal.type).put("color", Orbs.LETTERS[goal.color].toString())
-            is Goal.Blob -> JSONObject().put("type", "blob").put("color", Orbs.LETTERS[goal.color].toString()).put("min", goal.min).also { json ->
+            is Goal.Shape -> JSONObject().put("type", goal.type).put("color", colorJson(goal.color))
+            is Goal.Blob -> JSONObject().put("type", "blob").put("color", colorJson(goal.color)).put("min", goal.min).also { json ->
                 if (goal.max != null) json.put("max", goal.max)
             }
             // The default set (the 5 attributes in colour order) is not written.
@@ -121,6 +124,12 @@ data class PadSetup(
                 if (goal.set != Goal.Colors.DEFAULT_SET) json.put("of", JSONArray(goal.set.map { Orbs.LETTERS[it].toString() }))
             }
         }
+
+        /** A goal colour letter, or "any" for [Orbs.ANY]. */
+        private fun colorJson(color: Int): String = if (color == Orbs.ANY) ANY_JSON else Orbs.LETTERS[color].toString()
+
+        /** JSON value of [Orbs.ANY]; read in any letter case. */
+        private const val ANY_JSON = "any"
 
         private fun parseGoal(json: JSONObject, at: String): Goal {
             val type = json.optString("type")
@@ -133,10 +142,15 @@ data class PadSetup(
             }
             if (type == "colors") return parseColorsGoal(json, at)
             require(type in Shapes.TYPES || type == "blob") { "$at.type \"$type\" is not a goal type" }
-            // Upper-case only, like the browser validator and the schema.
+            // Upper-case letters only, like the browser validator and the schema; "any" in any case.
             val letter = json.opt("color") as? String
-            val color = if (letter != null && letter.length == 1 && letter[0].isUpperCase()) Orbs.code(letter[0]) else -1
-            require(color in 0 until Orbs.ATTRIBUTES) { "$at.color must be one of R, B, G, L, D, H" }
+            val color = when {
+                letter != null && letter.equals(ANY_JSON, ignoreCase = true) -> Orbs.ANY
+                // Orbs.code() returns -1 (= Orbs.ANY) for an unknown letter such as "X".
+                letter != null && letter.length == 1 && letter[0].isUpperCase() -> Orbs.code(letter[0]).takeIf { it >= 0 } ?: NOT_A_COLOR
+                else -> NOT_A_COLOR
+            }
+            require(color == Orbs.ANY || color in 0 until Orbs.ATTRIBUTES) { "$at.color must be one of R, B, G, L, D, H or any" }
             if (type == "blob") {
                 // The upper bound (rows x cols) is checked by the PadSetup constructor.
                 val min = json.opt("min") as? Number

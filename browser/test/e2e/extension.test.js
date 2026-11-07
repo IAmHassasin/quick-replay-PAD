@@ -431,6 +431,38 @@ test('PAD panel in the popup solves the active tab and shows the result', { time
   assert.deepEqual(settings.goals, [{ type: 'row', color: 'L' }, { type: 'combos', count: 4 }]);
 });
 
+test('PAD popup: an "Any" colour goal and missing orbs are shown (REHA-16)', { timeout: TEST_TIMEOUT }, async () => {
+  const { page } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-any');
+  await apiOk({ type: 'qr:padSaveSettings', settings: padSettings() });
+  const popup = await context.newPage();
+  openPages.add(popup);
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  const goal = popup.locator('#padGoals li').first();
+  await goal.waitFor();
+  // Row of any colour: the doc board has 6+ orbs of Fire, Water and Light.
+  await goal.locator('.goal-color').selectOption('any');
+  await page.bringToFront();
+  await popup.click('#padSolveBtn');
+  await popup.locator('#padResult').filter({ hasText: 'Solved' }).waitFor();
+  assert.match(await popup.locator('#padResult').textContent(), /\[x\] Row of (Fire|Water|Light) \(any colour\)/);
+  let { settings } = await apiOk({ type: 'qr:padGetSettings' });
+  assert.deepEqual(settings.goals, [{ type: 'row', color: 'any' }]);
+  // A stored "any" goal shows "Any" when the popup opens again.
+  await popup.reload();
+  await popup.locator('#padGoals li').first().waitFor();
+  assert.equal(await popup.locator('#padGoals li .goal-color').first().inputValue(), 'any');
+  // A 3x3 square of Dark needs 9 Dark orbs; the doc board has 3.
+  const again = popup.locator('#padGoals li').first();
+  await again.locator('.goal-type').selectOption('square');
+  await again.locator('.goal-color').selectOption('D');
+  await page.bringToFront();
+  await popup.click('#padSolveBtn');
+  await popup.locator('#padResult').filter({ hasText: 'Impossible' }).waitFor();
+  assert.match(await popup.locator('#padResult').textContent(), /Dark: the goals need 9 orbs, the board has 3/);
+  ({ settings } = await apiOk({ type: 'qr:padGetSettings' }));
+  assert.deepEqual(settings.goals, [{ type: 'square', color: 'D' }]);
+});
+
 test('PAD drag can be stopped midway and the orb is released', { timeout: TEST_TIMEOUT }, async () => {
   const { page, tabId } = await openPage(`pad.html?patt=${PAD_DOC_BOARD}`, 'pad-stop');
   // Slow drag so there is time to stop it.

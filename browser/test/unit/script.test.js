@@ -206,7 +206,9 @@ test('the script schema has the blob goal: a colour and a size >= 3', () => {
   const blob = branches.find((b) => b.properties.type.const === 'blob');
   assert.ok(blob, 'a blob branch in $defs.goal.oneOf');
   assert.deepEqual(blob.required, ['type', 'color', 'min']);
-  assert.deepEqual(blob.properties.color.enum, ['R', 'B', 'G', 'L', 'D', 'H']);
+  // A colour letter or "any" (REHA-16).
+  assert.deepEqual(blob.properties.color, { $ref: '#/$defs/goalColor' });
+  assert.deepEqual(schema.$defs.goalColor.anyOf[0].enum, ['R', 'B', 'G', 'L', 'D', 'H']);
   assert.deepEqual(blob.properties.min, { type: 'integer', minimum: 3, maximum: 81 });
   // The shape branch must not accept "blob".
   assert.ok(!branches.some((b) => b !== blob && (b.properties.type.enum ?? [b.properties.type.const]).includes('blob')));
@@ -218,8 +220,14 @@ const colorsScript = (goal) => ({
   steps: [{ type: 'solve' }],
 });
 
+const SCRIPT_SCHEMA = JSON.parse(readFileSync(new URL('../../../spec/quickreplay.schema.json', import.meta.url), 'utf8'));
+
 /** The keywords the schema's goal branches use; enough to check examples without a validator. */
 function matchesSchema(node, value) {
+  if (node.$ref) return matchesSchema(SCRIPT_SCHEMA.$defs[node.$ref.replace('#/$defs/', '')], value);
+  if (node.anyOf && !node.anyOf.some((sub) => matchesSchema(sub, value))) return false;
+  if (node.type === 'string' && typeof value !== 'string') return false;
+  if (node.pattern && !(typeof value === 'string' && new RegExp(node.pattern, 'u').test(value))) return false;
   if (node.type === 'object' && (typeof value !== 'object' || value === null || Array.isArray(value))) return false;
   if (node.type === 'array' && !Array.isArray(value)) return false;
   if (node.type === 'integer' && !Number.isInteger(value)) return false;
@@ -336,5 +344,27 @@ test('blob max: an optional integer from min to rows x cols, in the validator an
   }
   for (const goal of [{ type: 'blob', color: 'R', min: 5, max: 2 }, { type: 'blob', color: 'R', min: 5, max: 82 }, { type: 'blob', color: 'R', min: 5, max: 5.5 }]) {
     assert.equal(matching(goal), 0, JSON.stringify(goal));
+  }
+});
+
+test('"any" goal colour: shape and blob goals, any letter case, in the validator and the schema (REHA-16)', () => {
+  const goalBranches = SCRIPT_SCHEMA.$defs.goal.oneOf;
+  for (const goal of [
+    { type: 'tshape', color: 'any' },
+    { type: 'row', color: 'ANY' },
+    { type: 'blob', color: 'Any', min: 3 },
+    { type: 'blob', color: 'aNy', min: 5, max: 5 },
+  ]) {
+    assert.deepEqual(validateScript(colorsScript(goal)), [], JSON.stringify(goal));
+    assert.equal(goalBranches.filter((b) => matchesSchema(b, goal)).length, 1, JSON.stringify(goal));
+  }
+  for (const goal of [
+    { type: 'tshape', color: 'anything' },
+    { type: 'tshape', color: 'J' },
+    { type: 'blob', color: 'an', min: 3 },
+    { type: 'colors', count: 1, of: ['any'] },
+  ]) {
+    assert.match(validateScript(colorsScript(goal))[0] ?? '', /pad\.goals\[0\]/, JSON.stringify(goal));
+    assert.equal(goalBranches.filter((b) => matchesSchema(b, goal)).length, 0, JSON.stringify(goal));
   }
 });

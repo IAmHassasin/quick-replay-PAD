@@ -87,6 +87,39 @@ A `colors` goal (2026-11-07) has no placements: it is met when the combos have �
 colours of its set, and an unmet one scores like a combo-count goal (40 × colours reached /
 `count` + 2 per touching same-colour pair, the pairs counted once per board).
 
+**Missing orbs** (REHA-16, 2026-11-07): before any search, the orbs every goal needs are summed
+per colour (shape size, blob `min`; a row and a column of one colour share one orb). A colour
+short of orbs makes the result `impossible` with e.g. `Light: the goals need 5 orbs, the board
+has 4`; this covers the main pattern and every further pattern of the list (T of Light + 3+ Light
+connected on 7 Light: "need 8 orbs"). The browser popup lists the reasons; Android stops the
+replay with `Goals impossible: <reasons>`.
+
+**Any colour** (REHA-16, 2026-11-07): a shape or `blob` goal may have `"color": "any"` (any letter
+case; written back as `any`). Not for `combos` or `colors`. Owner rules: an Any goal becomes one of
+the 5 attributes R, B, G, L, D (never Heart); the Any goals of one list get pairwise different
+colours; an Any goal may take the colour of a goal with a fixed colour (T of Light + 3+ Any can
+use Light when there are 8 Light orbs). The solver:
+
+1. checks the fixed goals and the size of the Any goals (`checkFeasibility`), as above;
+2. lists the assignments (one colour per Any goal, in goal order, generated in colour order) whose
+   per-colour orb sums fit the board; identical Any goals get their colours in colour order (a swap
+   is the same search). None → `impossible`, `Any colour: no assignment of distinct colours has
+   enough orbs for "T shape of any colour", "3+ any colour connected"`;
+3. sorts them by the orb count of the first Any goal's colour (more first), then the second, ...
+   (stable, so ties stay in colour order), and keeps the first `ANY_ASSIGNMENT_LIMIT` = 6;
+4. **time limit**: searches them one after another; each gets `(time left) / (assignments left)`
+   (integer ms), so time an assignment does not use (e.g. it stops at `maxBeamWidth`) goes to the
+   next; the last one ends exactly at `timeLimitMs`. Without Any goals there is one assignment and
+   the search is unchanged (all earlier vectors are identical);
+5. keeps the best result: solved before partial, then more goals met, then fewer moves; a tie keeps
+   the earlier (better stocked) assignment.
+
+The result names the chosen colour: `goals[i].label` is e.g. `T shape of Light (any colour)` and
+`goals[i].anyColor` (JS) / `GoalResult.anyColor` (Kotlin) the letter; `stats.assignments` counts
+the assignments searched. Both solvers follow the same order (vectors `tee l ...`, `doc two blobs
+any one move`). The colour dropdowns of the popup and of the Android setup dialog have an "Any"
+entry.
+
 **Anytime widening** (2026-10-18): rounds with W = 1000, 4000, 16000, 64000 until `timeLimitMs`
 (default 3 s); after the first solution a round only accepts a shorter path (or as long with more
 combos). Children are scored by swapping in place; only kept states copy the board (~1.5–2x
@@ -183,6 +216,7 @@ before relying on it.
 | Blob (goal `blob`, `min` N) | At least N connected orbs in one combo, any shape | "N+ connected" leaders; a colour set = one blob `min` 3 per colour; a repeated goal = separate combos |
 | Blob with `max` (`min` N, `max` M) | N to M connected orbs in one combo; `max` = `min` = exactly N | "Exactly N" leaders ("闇を5個消し") |
 | Colours (goal `colors`, `count` K, `of`) | Combos of at least K distinct colours of `of` (default R, B, G, L, D) | Rainbow leaders ("3色以上同時攻撃"); add H for "5色+回復" |
+| Any colour (`"color": "any"` on a shape or blob) | The solver picks R, B, G, L or D; Any goals of one list take different colours | "T of Light + 3 orbs of any colour" leaders |
 
 ## Proposed pipeline (Android)
 

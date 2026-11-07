@@ -33,6 +33,15 @@ const TEE_FAR = 'BDGLRH\nGDBHLR\nDHDGBL\nLBRBGH\nRDLHDG';
 // Blob max board (REHA-14): one move makes a Fire combo of 6 together with G G G, or a Fire combo
 // of 3 to 5 without Wood.
 const SIX = 'RRGRBL\nDHRRGG\nBGRDHB\nLDHBGD\nGBLHDH';
+// Missing orbs and Any colours (REHA-16), the boards of test/unit/pad-any-colour.test.js: L4;
+// L5 with 2 Fire; L7; TEE_L (L5 one move from a T, R4 B4 G4 D4); TEE_L_ONLY (L5, R2 B2 G2 D2, H9);
+// TEE_L8 (L8: a T one move away and a separate column of 3).
+const LIGHT4 = 'LRBGDH\nRBGDHR\nLBGDHB\nRGLDHG\nBRDLHR';
+const LIGHT5_FIRE2 = 'LLLLLB\nRGDHBG\nDBGHDB\nRGDHBG\nDBGHDB';
+const LIGHT7 = 'LLLLLL\nLRBGDH\nRBGDHR\nBGDHRB\nGDHRBG';
+const TEE_L = 'LLLRBG\nRLBGDH\nBGLDJP\nGDRJPM\nDHJMRB';
+const TEE_L_ONLY = 'LLLRBG\nHLHHHH\nHJLJPM\nRBGDJP\nDHHHMM';
+const TEE_L8 = 'LLLRBG\nHLHHLH\nHJLJLM\nRBGDLP\nDHHHMM';
 const FULL =Array.from({ length: 9 }, (_, r) => (r < 8 ? `${'R'.repeat(r)}B${'R'.repeat(8 - r)}` : 'R'.repeat(9))).join('\n');
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
@@ -102,6 +111,18 @@ const cases = [
   ['six exactly 5 R + blob 3+ G one move unmet', SIX, [{ type: 'blob', color: 'R', min: 5, max: 5 }, { type: 'blob', color: 'G', min: 3 }], { ...single, maxMoves: 1 }],
   ['doc blob 3-5 R', DOC, [{ type: 'blob', color: 'R', min: 3, max: 5 }], single],
   ['doc blob exactly 4 R no diagonals', DOC, [{ type: 'blob', color: 'R', min: 4, max: 4 }], { ...single, diagonals: false }],
+  // Missing orbs (REHA-16): the main pattern, a second pattern of another colour, two of one colour.
+  ['light4 tshape L impossible', LIGHT4, [{ type: 'tshape', color: 'L' }], single],
+  ['light5 fire2 tshape L + blob 3+ R impossible', LIGHT5_FIRE2, [{ type: 'tshape', color: 'L' }, { type: 'blob', color: 'R', min: 3 }], single],
+  ['light7 tshape L + blob 3+ L impossible', LIGHT7, [{ type: 'tshape', color: 'L' }, { type: 'blob', color: 'L', min: 3 }], single],
+  // Any colour (REHA-16): one choice, two Any goals that cannot differ, two that can (4 tied
+  // colours: the order of the assignments matters), Any sharing the colour of a fixed goal, and
+  // more than ANY_ASSIGNMENT_LIMIT feasible assignments with one move.
+  ['tee l tshape any', TEE_L, [{ type: 'tshape', color: 'any' }], single],
+  ['tee l only tshape any + blob any impossible', TEE_L_ONLY, [{ type: 'tshape', color: 'any' }, { type: 'blob', color: 'any', min: 3 }], single],
+  ['tee l tshape any + blob any', TEE_L, [{ type: 'tshape', color: 'any' }, { type: 'blob', color: 'any', min: 3 }], single],
+  ['tee l8 tshape L + blob any', TEE_L8, [{ type: 'tshape', color: 'L' }, { type: 'blob', color: 'ANY', min: 3 }], single],
+  ['doc two blobs any one move', DOC, [{ type: 'blob', color: 'any', min: 3 }, { type: 'blob', color: 'any', min: 3 }], { ...single, maxMoves: 1 }],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {
@@ -120,6 +141,10 @@ const vectors = cases.map(([name, text, goals, options]) => {
       combos: r.combos.length,
       afterDrag: r.afterDrag ? formatBoard(board, r.afterDrag) : null,
       rounds: r.stats.rounds,
+      // Only for Any goals (older vectors stay as they were): the labels name the chosen colours.
+      ...(goals.some((g) => typeof g.color === 'string' && g.color.toLowerCase() === 'any')
+        ? { labels: r.goals.map((g) => g.label), assignments: r.stats.assignments }
+        : {}),
     },
   };
 });
