@@ -31,6 +31,8 @@ android/app/src/main/java/dev/quickreplay/
   overlay/   OverlayPanel (draggable panel), OverlayMenu (☰ menu), CaptureLayer (recording layer + live feedback),
              PlaybackOverlay (non-touchable layer drawing replayed gestures), TouchMarkers (shared drawing)
   store/     ScriptStore (scripts/ and sequences/ JSON in filesDir, active id in prefs), AppSettings
+  update/    Semver, ReleaseParser, UpdatePolicy (pure, unit-tested), UpdateClient (HttpURLConnection),
+             UpdateController (check / download state for the banner), ApkProvider (APK to the installer)
   ui/        MainActivity (library, settings, import/export), SequenceEditorActivity (combined scripts),
              GuideActivity (in-app guide, texts in strings.xml guide_*), PlaygroundActivity (test surface)
 android/app/src/debug/  DebugCommandReceiver (adb automation, debug builds only, needs DUMP)
@@ -175,7 +177,9 @@ playback now runs on its own `HandlerThread` and gesture callbacks are delivered
 
 ## Conventions and rules
 
-- English only in code, comments, logs, UI text and docs. No telemetry, no network calls.
+- English only in code, comments, logs, UI text and docs. No telemetry. The only network call is the
+  update check against GitHub Releases (`update/UpdateClient.kt`: latest release JSON from
+  `api.github.com` and the release APK from `github.com`); do not add others.
 - Do not copy code from GPL references (Smart-AutoClicker is GPL-3.0; this project is MIT).
 - Company rule: commits must use a `@dssolution.jp` author/committer email.
 
