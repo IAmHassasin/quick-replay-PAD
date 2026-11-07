@@ -15,6 +15,9 @@ const RICH = 'DRDBDG\nLDHDRD\nBDGLDB\nRHDBGL\nGLRHBD';
 const R2 = 'GLRLDB\nLHBRLG\nDLGBLR\nBRLDHL\nRGBLGD';
 const R3 = 'HRBGDL\nRRLBGD\nLBDRHB\nGDRLBR\nBLHGRD';
 const SMALL = 'RBGL\nLDHR\nBRGD\nHLBG';
+// Other board sizes used by the match-style tests (5 columns x 4 rows, 7 columns x 6 rows).
+const WIDE = 'LRBLG\nGLHRB\nRBLGL\nHGRBD';
+const BIG = 'RGBLDHR\nBRGLHDB\nGBRLDHG\nLGBRHDL\nDLGBRHD\nHDLGBRH';
 
 const single = { timeLimitMs: 600000, maxBeamWidth: 1000 };
 const twoRounds = { timeLimitMs: 600000, maxBeamWidth: 4000 };
@@ -41,6 +44,12 @@ const cases = [
   ['rich 3x3 D two rounds', RICH, [{ type: 'square', color: 'D' }], twoRounds],
   // Rounds up to 16000 wide with no early stop: passes SEEN_LIMIT, so the set is cleared mid-round.
   ['doc no goals wide', DOC, [], { timeLimitMs: 600000, maxBeamWidth: 16000, maxMoves: 20 }],
+  // Match-style cases: other board sizes, an exact shape without diagonals, an unmet goal.
+  ['wide 5x4 row L', WIDE, [{ type: 'row', color: 'L' }], single],
+  ['big 7x6 column L', BIG, [{ type: 'column', color: 'L' }], single],
+  ['shot cross H no diagonals', SHOT, [{ type: 'cross', color: 'H' }], { ...single, diagonals: false }],
+  ['doc row L one move unmet', DOC, [{ type: 'row', color: 'L' }], { ...single, maxMoves: 1 }],
+  ['doc tpa L', DOC, [{ type: 'tpa', color: 'L' }], single],
 ];
 
 const vectors = cases.map(([name, text, goals, options]) => {

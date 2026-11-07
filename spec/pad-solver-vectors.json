@@ -754,6 +754,182 @@
         "afterDrag": "LRHLBB\nLGGGDL\nLBRDRL\nHRRBRL\nBBBRRD",
         "rounds": 3
       }
+    },
+    {
+      "name": "wide 5x4 row L",
+      "board": "LRBLG\nGLHRB\nRBLGL\nHGRBD",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          3,
+          9,
+          14,
+          8,
+          12,
+          7,
+          6,
+          0,
+          5
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "GRBBG\nLLLLL\nRBHGR\nHGRBD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "big 7x6 column L",
+      "board": "RGBLDHR\nBRGLHDB\nGBRLDHG\nLGBRHDL\nDLGBRHD\nHDLGBRH",
+      "goals": [
+        {
+          "type": "column",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          21,
+          22,
+          23,
+          29,
+          30,
+          24,
+          23,
+          31,
+          37,
+          38
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "RGBLDHR\nBRGLHDB\nGBRLDHG\nGBBLHDL\nDGRLRHD\nHDGLBRH",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "shot cross H no diagonals",
+      "board": "LHDGHL\nHDLBHR\nGLBRGG\nGGBHBG\nHGLHBH",
+      "goals": [
+        {
+          "type": "cross",
+          "color": "H"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "diagonals": false
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          22,
+          21,
+          27,
+          28,
+          29,
+          23,
+          17,
+          16,
+          10,
+          4,
+          5,
+          11,
+          17,
+          23,
+          22,
+          16,
+          10
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 2,
+        "afterDrag": "LHDGLR\nHDLBBG\nGLBRHG\nGGBHHH\nHGLBHG",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc row L one move unmet",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "row",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000,
+        "maxMoves": 1
+      },
+      "expected": {
+        "status": "partial",
+        "reasons": [],
+        "path": [
+          0,
+          7
+        ],
+        "goalsMet": [
+          false
+        ],
+        "combos": 0,
+        "afterDrag": "RGHLBB\nLLDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
+    },
+    {
+      "name": "doc tpa L",
+      "board": "LGHLBB\nLRDDGL\nBRRLRR\nHBRGBL\nLBBRRD",
+      "goals": [
+        {
+          "type": "tpa",
+          "color": "L"
+        }
+      ],
+      "options": {
+        "timeLimitMs": 600000,
+        "maxBeamWidth": 1000
+      },
+      "expected": {
+        "status": "solved",
+        "reasons": [],
+        "path": [
+          15,
+          8,
+          1,
+          6,
+          7,
+          2
+        ],
+        "goalsMet": [
+          true
+        ],
+        "combos": 1,
+        "afterDrag": "LLLLBB\nRHGDGL\nBRRDRR\nHBRGBL\nLBBRRD",
+        "rounds": 1
+      }
     }
   ]
 }
