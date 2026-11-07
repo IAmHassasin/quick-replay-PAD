@@ -38,7 +38,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      # v3 installs the removed SDK "tools" package and fails. v4 installs platform-tools only.
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -84,7 +87,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      # v3 installs the removed SDK "tools" package and fails. v4 installs platform-tools only.
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
